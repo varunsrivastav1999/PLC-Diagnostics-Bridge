@@ -79,11 +79,12 @@ def test_mock_siemens_connect_read_write():
         
         # Mock DB read operations
         mock_client.db_read.side_effect = [
-            b'\x01',  # For BOOL read (bit 0 set)
-            b'\x34\x12',  # For INT read (0x1234 = 4660)
-            b'\x78\x56\x34\x12',  # For DINT read (0x12345678 = 305419896)
-            b'\x00\x00\x80\x3f',  # For REAL read (1.0 in IEEE 754)
-            b'\x05\x04Test',  # For STRING read (max=5, len=4, "Test")
+            bytearray(b'\x01'),  # For BOOL read (bit 0 set)
+            bytearray(b'\x12\x34'),  # For INT read (0x1234 = 4660)
+            bytearray(b'\x12\x34\x56\x78'),  # For DINT read (0x12345678 = 305419896)
+            bytearray(b'\x3f\x80\x00\x00'),  # For REAL read (1.0 in IEEE 754)
+            bytearray(b'\x05\x04'),  # For STRING header (max=5, len=4)
+            bytearray(b'\x05\x04Test'),  # For STRING data (max=5, len=4, "Test")
         ]
         
         service = SiemensPLCService()
@@ -99,24 +100,27 @@ def test_mock_siemens_connect_read_write():
         assert result is True
         mock_client.connect.assert_called_once_with("192.168.1.100", 0, 1, tcp_port=102)
         
+        # Create a simple request class to avoid Mock issues
+        from app.schemas.plc import DataType
+        
+        class MockRequest:
+            def __init__(self, data_type, address, bit_offset=0):
+                self.data_type = data_type
+                self.address = address
+                self.bit_offset = bit_offset
+        
         # Test read operations
-        read_req = Mock()
-        read_req.data_type = "BOOL"
-        read_req.address = "DB1.DBX0.0"
+        read_req = MockRequest(DataType.BOOL, "DB1.DBX0.0", 0)
         assert service.read(read_req) is True
         
-        read_req.data_type = "INT"
-        read_req.address = "DB1.DBW2"
+        read_req = MockRequest(DataType.INT, "DB1.DBW2", 0)
         assert service.read(read_req) == 4660
         
-        read_req.data_type = "DINT"
-        read_req.address = "DB1.DBD4"
+        read_req = MockRequest(DataType.DINT, "DB1.DBD4", 0)
         assert service.read(read_req) == 305419896
         
-        read_req.data_type = "REAL"
-        read_req.address = "DB1.DBD8"
+        read_req = MockRequest(DataType.REAL, "DB1.DBD8", 0)
         assert service.read(read_req) == 1.0
         
-        read_req.data_type = "STRING"
-        read_req.address = "DB1.DBD12"
+        read_req = MockRequest(DataType.STRING, "DB1.DBD12", 0)
         assert service.read(read_req) == "Test"
