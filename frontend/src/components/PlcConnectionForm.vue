@@ -93,7 +93,7 @@ const getPlcIcon = (type) => {
 };
 
 const getPlcDesc = (type) => {
-    const map = { siemens: 'S7 Comm · Snap7', mitsubishi: 'MC Protocol', rockwell: 'EtherNet/IP', abb: 'Modbus TCP', fanuc: 'GE Fanuc' };
+    const map = { siemens: 'S7 Comm · Snap7', mitsubishi: 'MC Protocol', rockwell: 'EtherNet/IP', abb: 'Modbus TCP', fanuc: 'fxvrlib Fanuc' };
     return map[type] || 'Protocol';
 };
 
@@ -109,7 +109,7 @@ const onPlcTypeChange = () => {
     else if (type === 'mitsubishi') store.connectionConfig.port = 5000;
     else if (type === 'abb') store.connectionConfig.port = 502;
     else if (type === 'rockwell') store.connectionConfig.port = 44818;
-    else if (type === 'fanuc') store.connectionConfig.port = 18245;
+    else if (type === 'fanuc') store.connectionConfig.port = 21;
 }
 
 const handleConnect = async () => {

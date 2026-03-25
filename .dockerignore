@@ -1,0 +1,12 @@
+.git
+.gitignore
+README.md
+memory.md
+.DS_Store
+__pycache__
+*.pyc
+.pytest_cache
+node_modules
+dist
+.vite
+.env

@@ -1,4 +1,3 @@
-import struct
 import snap7
 import re
 from typing import Any
@@ -80,7 +79,7 @@ class SiemensPLCService(BasePLCService):
                 # S7 string: byte 0 = max length, byte 1 = actual length, bytes 2+ = chars
                 # Read header first to get actual length
                 header = self.client.db_read(db_number, start, 2)
-                max_len = header[0]
+                # max_len = header[0]
                 actual_len = header[1]
                 if actual_len > 0:
                     data = self.client.db_read(db_number, start, 2 + actual_len)

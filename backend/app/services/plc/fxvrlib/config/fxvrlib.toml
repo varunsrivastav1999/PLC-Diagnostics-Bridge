@@ -1,0 +1,15 @@
+#
+# SPDX-FileCopyrightText: 2025, FANUC America Corporation
+# SPDX-FileCopyrightText: 2025, FANUC CORPORATION
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+[app_settings]
+company="FANUC"
+log_level="DEBUG"
+log_max_bytes=1048576
+log_backup_count=5
+output_path = ["out"]
+
+[[robot_controllers]]
+

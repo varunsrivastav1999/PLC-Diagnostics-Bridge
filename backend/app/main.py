@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
 from app.api.routes import plc
 from app.core.config import settings
 from app.core.logger import setup_logging
@@ -12,12 +13,20 @@ import logging
 setup_logging()
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info(f"🚀 {settings.PROJECT_NAME} v{settings.VERSION} starting")
+    yield
+    logger.info("Shutting down — closing all PLC connections")
+    connection_cache.clear_all()
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url=None,
+    lifespan=lifespan,
 )
 
 # CORS
@@ -65,15 +74,7 @@ async def general_error_handler(request: Request, exc: Exception):
 # Routes
 app.include_router(plc.router, prefix="/api/plc", tags=["PLC Operations"])
 
-# Lifecycle
-@app.on_event("startup")
-async def startup():
-    logger.info(f"🚀 {settings.PROJECT_NAME} v{settings.VERSION} starting")
-
-@app.on_event("shutdown")
-async def shutdown():
-    logger.info("Shutting down — closing all PLC connections")
-    connection_cache.clear_all()
+# Lifecycle now managed via lifespan context manager
 
 # Health
 @app.get("/health", tags=["System"])

@@ -25,7 +25,7 @@ class MitsubishiPLCService(BasePLCService):
             self.client.close()
             self.is_connected = False
             return True
-        except:
+        except Exception:
             return False
 
     def test_connection(self) -> bool:
