@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700;800&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #020617;
+  background-image: 
+    radial-gradient(ellipse at 20% 0%, rgba(6,182,212,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(99,102,241,0.06) 0%, transparent 50%);
+  color: #e2e8f0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* PrimeVue Dark Overrides */
+.p-card {
+  background: rgba(15, 23, 42, 0.7) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  border: 1px solid rgba(51, 65, 85, 0.4) !important;
+  color: #e2e8f0 !important;
+  border-radius: 16px !important;
+}
+.p-card .p-card-body { padding: 1.25rem !important; }
+.p-card .p-card-content { padding: 0 !important; }
+
+/* Inputs & Selects — proper padding */
+.p-inputtext, .p-select, .p-dropdown {
+  background: #0f172a !important;
+  border: 1px solid #1e293b !important;
+  color: #f1f5f9 !important;
+  border-radius: 8px !important;
+  font-size: 0.875rem !important;
+  padding: 0.6rem 0.75rem !important;
+  min-height: 2.5rem !important;
+  transition: all 0.2s ease !important;
+}
+.p-inputtext:enabled:focus, .p-select:not(.p-disabled).p-focus, .p-dropdown:not(.p-disabled).p-focus {
+  border-color: #0ea5e9 !important;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.15) !important;
+}
+.p-inputtext::placeholder { color: #475569 !important; }
+
+/* Dropdown trigger */
+.p-dropdown .p-dropdown-trigger,
+.p-select .p-select-dropdown {
+  color: #64748b !important;
+  width: 2.5rem !important;
+}
+
+/* Dropdown Panel — proper spacing & margin from trigger */
+.p-select-overlay, .p-dropdown-panel {
+  background: #0f172a !important;
+  border: 1px solid #1e293b !important;
+  border-radius: 12px !important;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8) !important;
+  color: #e2e8f0 !important;
+  margin-top: 4px !important;
+  padding: 6px !important;
+}
+.p-select-list-container, .p-dropdown-items-wrapper {
+  padding: 0 !important;
+}
+.p-select-option, .p-dropdown-item {
+  color: #94a3b8 !important;
+  border-radius: 6px !important;
+  margin: 2px 0 !important;
+  padding: 0.5rem 0.75rem !important;
+  transition: all 0.15s ease !important;
+}
+.p-select-option:hover, .p-dropdown-item:hover,
+.p-select-option.p-focus, .p-dropdown-item.p-focus {
+  background: rgba(14, 165, 233, 0.1) !important;
+  color: #e2e8f0 !important;
+}
+.p-select-option.p-selected, .p-dropdown-item.p-highlight {
+  background: rgba(14, 165, 233, 0.15) !important;
+  color: #38bdf8 !important;
+}
+
+/* Buttons */
+.p-button {
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  padding: 0.6rem 1.25rem !important;
+  transition: all 0.2s ease !important;
+}
+
+/* Checkbox */
+.p-checkbox .p-checkbox-box {
+  background: #0f172a !important;
+  border: 1px solid #334155 !important;
+}
+.p-checkbox .p-checkbox-box.p-highlight {
+  background: #0ea5e9 !important;
+  border-color: #0ea5e9 !important;
+}
+
+/* Toast — proper margins and spacing */
+.p-toast {
+  z-index: 9999 !important;
+  padding: 1rem !important;
+}
+.p-toast-message {
+  margin-bottom: 0.75rem !important;
+  border-radius: 12px !important;
+  background: rgba(15, 23, 42, 0.95) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid #1e293b !important;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.6) !important;
+  overflow: hidden !important;
+}
+.p-toast-message-content {
+  padding: 0.875rem 1rem !important;
+  gap: 0.75rem !important;
+  align-items: flex-start !important;
+}
+.p-toast-message-text {
+  margin: 0 !important;
+}
+.p-toast-summary {
+  font-weight: 800 !important;
+  font-size: 0.8rem !important;
+  letter-spacing: 0.05em !important;
+  margin-bottom: 0.15rem !important;
+}
+.p-toast-detail {
+  font-size: 0.75rem !important;
+  color: #94a3b8 !important;
+  margin-top: 0.15rem !important;
+}
+.p-toast-icon-close {
+  color: #64748b !important;
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+}
+
+/* Animations */
+@keyframes fadein {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadein { animation: fadein 0.3s ease-out; }
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+.animate-glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
+
