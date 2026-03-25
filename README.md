@@ -141,13 +141,15 @@ Environment variables (set in `docker-compose.yml`):
 
 ## 🛡️ Supported PLC Protocols
 
-| Brand      | Protocol        | Library         | Data Types                    |
-|------------|-----------------|-----------------|-------------------------------|
-| Siemens    | S7 (ISO-on-TCP) | python-snap7    | Bool, Int, DInt, Real, String |
-| Rockwell   | CIP / EtherNet/IP | pylogix       | Bool, Int, Float, String      |
-| Mitsubishi | MC Protocol     | pymcprotocol    | Bool, Int, Float, String      |
-| ABB        | Modbus/TCP      | pymodbus        | Bool, Int, Float, String      |
-| Fanuc      | Custom          | —               | Read/Write                    |
+| Brand      | Protocol        | Library         | Data Types                    | Docs |
+|------------|-----------------|-----------------|-------------------------------|------|
+| Siemens    | S7 (ISO-on-TCP) | python-snap7    | Bool, Int, DInt, Real, String | [📖](docs/siemens.md) |
+| Rockwell   | CIP / EtherNet/IP | pylogix       | Bool, Int, Float, String      | [📖](docs/rockwell.md) |
+| Mitsubishi | MC Protocol     | pymcprotocol    | Bool, Int, Float, String      | [📖](docs/mitsubishi.md) |
+| ABB        | Modbus/TCP      | pymodbus        | Bool, Int, Float, String      | [📖](docs/abb.md) |
+| Fanuc      | Custom          | —               | Read/Write                    | [📖](docs/fanuc.md) |
+
+📚 **Detailed documentation for each PLC brand**: [docs/](docs/)
 
 ## 🤝 Contributing
 
