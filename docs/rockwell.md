@@ -65,6 +65,27 @@ POST /api/plc/write
 - **Connection failed**: Check IP address and slot number (0 for CompactLogix, slot number for ControlLogix)
 - **Tag not found**: Verify tag exists and is not aliased
 - **Permission errors**: Ensure controller allows external connections
+- **Rockwell specific**: Confirm EtherNet/IP is enabled and RSLinx is not blocking connections
+
+## Getting Started with Rockwell PLCs
+1. **PLC Setup**:
+   - Configure IP address in Logix Designer
+   - Enable EtherNet/IP communication
+   - Create controller tags for external access
+
+2. **Software Setup**:
+   ```bash
+   git clone <repository-url>
+   cd plc-diagnostics-bridge
+   pip install -r backend/requirements.txt
+   docker-compose up --build
+   ```
+
+3. **Testing Connection**:
+   - Open web interface at http://localhost:8080
+   - Select "rockwell" as PLC type
+   - Enter PLC IP (port 44818 default) and slot number
+   - Test connection and start monitoring
 
 ## Dependencies
 - `pylogix>=1.1.5`

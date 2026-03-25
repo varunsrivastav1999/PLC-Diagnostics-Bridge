@@ -65,6 +65,27 @@ POST /api/plc/write
 - **Connection failed**: Check IP address, rack/slot configuration
 - **Read/write errors**: Verify DB exists and address is valid
 - **Timeout**: Increase `CONNECTION_TIMEOUT_SEC` in environment
+- **Siemens specific**: Ensure PLC is in RUN mode and PUT/GET communication is enabled
+
+## Getting Started with Siemens PLCs
+1. **PLC Setup**:
+   - Configure IP address in TIA Portal
+   - Enable PUT/GET communication in PLC properties
+   - Set protection level to allow external access
+
+2. **Software Setup**:
+   ```bash
+   git clone <repository-url>
+   cd plc-diagnostics-bridge
+   pip install -r backend/requirements.txt
+   docker-compose up --build
+   ```
+
+3. **Testing Connection**:
+   - Open web interface at http://localhost:8080
+   - Select "siemens" as PLC type
+   - Enter PLC IP, rack (0), slot (1 for S7-1200/1500)
+   - Test connection and start monitoring
 
 ## Dependencies
 - `python-snap7>=2.0.0`

@@ -6,6 +6,11 @@ from app.schemas.plc import PLCConnectRequest, PLCReadRequest, PLCWriteRequest, 
 from app.core.exceptions import PLCConnectionError, PLCReadError, PLCWriteError
 
 class MitsubishiPLCService(BasePLCService):
+    """
+    Mitsubishi PLC Service using MC Protocol (MELSEC Communication Protocol).
+    Compatible with Q Series, L Series, and FX Series (including FX5U-500B).
+    Uses Type3E Ethernet protocol for reliable industrial communication.
+    """
     def __init__(self):
         super().__init__()
         self.client = pymcprotocol.Type3E()

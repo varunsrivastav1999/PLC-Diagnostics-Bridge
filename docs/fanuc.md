@@ -71,6 +71,27 @@ POST /api/plc/write
 - **FTP connection failed**: Verify FTP is enabled on robot controller
 - **Authentication errors**: Check username/password (default: guest/guest)
 - **Preset read/write errors**: Confirm job/color numbers exist
+- **Fanuc specific**: Ensure robot controller has preset management enabled
+
+## Getting Started with Fanuc Robots
+1. **Robot Setup**:
+   - Enable FTP server in robot controller settings
+   - Configure IP address and network settings
+   - Create paint jobs and color configurations
+
+2. **Software Setup**:
+   ```bash
+   git clone <repository-url>
+   cd plc-diagnostics-bridge
+   pip install -r backend/requirements.txt
+   docker-compose up --build
+   ```
+
+3. **Testing Connection**:
+   - Open web interface at http://localhost:8080
+   - Select "fanuc" as PLC type
+   - Enter robot controller IP and port 21
+   - Test connection and start monitoring presets
 
 ## Dependencies
 - Custom `fxvrlib` library (included)

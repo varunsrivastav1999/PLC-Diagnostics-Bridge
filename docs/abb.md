@@ -63,6 +63,27 @@ POST /api/plc/write
 - **Connection failed**: Verify PLC has Modbus/TCP enabled and correct port
 - **Address errors**: Confirm register/coil numbers and data types
 - **Communication issues**: Check Modbus configuration in PLC
+- **ABB specific**: Ensure AC500 series has Modbus TCP server configured
+
+## Getting Started with ABB PLCs
+1. **PLC Setup**:
+   - Configure IP address in Automation Builder
+   - Enable Modbus TCP server in PLC configuration
+   - Set up holding registers and coils for external access
+
+2. **Software Setup**:
+   ```bash
+   git clone <repository-url>
+   cd plc-diagnostics-bridge
+   pip install -r backend/requirements.txt
+   docker-compose up --build
+   ```
+
+3. **Testing Connection**:
+   - Open web interface at http://localhost:8080
+   - Select "abb" as PLC type
+   - Enter PLC IP and port 502
+   - Test connection and start monitoring
 
 ## Dependencies
 - `pymodbus>=3.7.0`

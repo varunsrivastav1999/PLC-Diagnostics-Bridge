@@ -52,7 +52,7 @@
 
 ## ✨ Features
 
-- 🔌 **Multi-PLC Support** — Siemens (S7), Rockwell (CIP), Mitsubishi (MC Protocol), ABB (Modbus/TCP), Fanuc
+- 🔌 **Multi-PLC Support** — Siemens (S7), Rockwell (CIP), Mitsubishi (MC Protocol, including FX5U-500B), ABB (Modbus/TCP), Fanuc
 - 📖 **Read & Write** — Bool, Int, DInt, Real/Float, String data types
 - 🩺 **Connection Diagnostics** — Health checks, connection pooling, timeout management
 - 🖥️ **SCADA-Style UI** — Professional dark-themed dashboard with real-time feedback
@@ -145,7 +145,7 @@ Environment variables (set in `docker-compose.yml`):
 |------------|-----------------|-----------------|-------------------------------|------|
 | Siemens    | S7 (ISO-on-TCP) | python-snap7    | Bool, Int, DInt, Real, String | [📖](docs/siemens.md) |
 | Rockwell   | CIP / EtherNet/IP | pylogix       | Bool, Int, Float, String      | [📖](docs/rockwell.md) |
-| Mitsubishi | MC Protocol     | pymcprotocol    | Bool, Int, Float, String      | [📖](docs/mitsubishi.md) |
+| Mitsubishi | MC Protocol     | pymcprotocol    | Bool, Int, Float, String (FX5U-500B, Q/L Series) | [📖](docs/mitsubishi.md) |
 | ABB        | Modbus/TCP      | pymodbus        | Bool, Int, Float, String      | [📖](docs/abb.md) |
 | Fanuc      | Custom          | —               | Read/Write                    | [📖](docs/fanuc.md) |
 
