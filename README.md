@@ -10,6 +10,7 @@
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License" />
   <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
   <img src="https://img.shields.io/badge/Vue%203-4FC08D?style=for-the-badge&logo=vue.js&logoColor=white" alt="Vue 3" />
   <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
@@ -150,6 +151,8 @@ Environment variables (set in `docker-compose.yml`):
 
 ## 🤝 Contributing
 
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
@@ -158,7 +161,21 @@ Environment variables (set in `docker-compose.yml`):
 
 ## 📜 License
 
-This project is for internal diagnostic and testing purposes.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+The Fanuc fxvrlib component is © FANUC America Corporation and licensed under Apache 2.0.
+
+## 🌟 Support
+
+- 📖 [Documentation](https://github.com/yourusername/plc-diagnostics-bridge/wiki)
+- 🐛 [Issues](https://github.com/yourusername/plc-diagnostics-bridge/issues)
+- 💬 [Discussions](https://github.com/yourusername/plc-diagnostics-bridge/discussions)
+
+## 🙏 Acknowledgments
+
+- FANUC Corporation for the fxvrlib library
+- Open source community for the amazing libraries used
+- Industrial automation engineers who inspired this project
 
 ---
 
