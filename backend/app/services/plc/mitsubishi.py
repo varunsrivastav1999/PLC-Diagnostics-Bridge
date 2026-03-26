@@ -1,4 +1,5 @@
 import struct
+import socket
 import pymcprotocol
 from typing import Any
 from app.services.plc.base import BasePLCService
@@ -19,8 +20,17 @@ class MitsubishiPLCService(BasePLCService):
         try:
             port = req.port if req.port is not None else 5000
             self.client.connect(req.ip, port)
-            self.is_connected = True
-            return True
+            # Test the connection by trying to read a small amount of data
+            try:
+                # Try to read a single bit/word to verify connection
+                self.client.batchread_bitunits(headdevice="M0", readsize=1)
+                self.is_connected = True
+                return True
+            except Exception:
+                # Connection succeeded but PLC communication failed
+                self.client.close()
+                self.is_connected = False
+                raise PLCConnectionError(f"Mitsubishi PLC not responding at {req.ip}:{port}")
         except Exception as e:
             self.is_connected = False
             raise PLCConnectionError(f"Mitsubishi connection failed: {e}")
@@ -34,7 +44,15 @@ class MitsubishiPLCService(BasePLCService):
             return False
 
     def test_connection(self) -> bool:
-        return self.is_connected
+        if not self.is_connected:
+            return False
+        try:
+            # Test connection by reading a single bit
+            self.client.batchread_bitunits(headdevice="M0", readsize=1)
+            return True
+        except Exception:
+            self.is_connected = False
+            return False
 
     def _words_to_bytes(self, words: list[int]) -> bytes:
         """Convert list of 16-bit word values to bytes (little-endian per word)."""

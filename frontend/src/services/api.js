@@ -31,6 +31,9 @@ export default {
     testConnection(data) {
         return api.post('/plc/test-connection', data);
     },
+    checkPortBusy(data) {
+        return api.post('/plc/check-port', data);
+    },
     readData(data) {
         return api.post('/plc/read', data);
     },

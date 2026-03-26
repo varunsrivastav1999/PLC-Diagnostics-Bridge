@@ -17,6 +17,11 @@ export const usePlcStore = defineStore('plc', {
         pollingInterval: 1000,
         isPolling: false,
         activePollTimeout: null,
+        portBusy: false,
+        checkingPort: false,
+        portStatus: 'unknown',
+        portMessage: '',
+        responseTime: null,
     }),
 
     getters: {
@@ -30,6 +35,32 @@ export const usePlcStore = defineStore('plc', {
                 this.supportedTypes = res.data;
             } catch {
                 // Silent — dropdown keeps local defaults
+            }
+        },
+
+        async checkPortBusy() {
+            this.checkingPort = true;
+            try {
+                const res = await api.checkPortBusy(this.connectionConfig);
+                const data = res.data;
+
+                // Normalize response for reliable busy/free state
+                const status = (data.port_status || 'unknown').toLowerCase();
+                const busy = typeof data.port_busy === 'boolean' ? data.port_busy : status === 'open';
+
+                this.portBusy = busy;
+                this.portStatus = status;
+                this.portMessage = data.message || '';
+                this.responseTime = data.response_time || null;
+                return { ...data, port_busy: busy, port_status: status };
+            } catch (err) {
+                this.portBusy = false;
+                this.portStatus = 'error';
+                this.portMessage = err.message;
+                this.responseTime = null;
+                return { success: false, message: err.message };
+            } finally {
+                this.checkingPort = false;
             }
         },
 

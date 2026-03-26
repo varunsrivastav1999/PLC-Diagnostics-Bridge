@@ -166,3 +166,17 @@ html, body {
 }
 .animate-glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
 
+/* Port Status Tags */
+.port-free-tag {
+  background: rgba(34, 197, 94, 0.1) !important;
+  color: #4ade80 !important;
+  border: 1px solid rgba(34, 197, 94, 0.3) !important;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.05) !important;
+}
+.port-busy-tag {
+  background: rgba(239, 68, 68, 0.1) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.05) !important;
+}
+

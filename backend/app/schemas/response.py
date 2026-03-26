@@ -10,3 +10,6 @@ class PLCResponse(BaseModel):
     timestamp: Optional[datetime] = None
     plc_type: Optional[str] = None
     address: Optional[str] = None
+    port_busy: Optional[bool] = None
+    port_status: Optional[str] = None
+    response_time: Optional[float] = None

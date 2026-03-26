@@ -62,17 +62,43 @@ def test_connection_post(req: PLCConnectRequest):
     plc_id = get_plc_id(req.ip, req.port)
     service = connection_cache.get_connection(plc_id)
     connected = False
-    if service:
-        try:
+    try:
+        if service:
             connected = service.test_connection()
-        except Exception:
-            connected = False
+    except Exception:
+        connected = False
+    finally:
+        connection_cache.remove_connection(plc_id)
     return PLCResponse(
         success=connected,
-        message="Link active" if connected else "No link",
-        connected=connected,
+        message="Link active (closed)" if connected else "No link",
+        connected=False,
         timestamp=_ts(),
     )
+
+
+@router.post("/check-port", response_model=PLCResponse)
+def check_port_busy(req: PLCConnectRequest):
+    """Check detailed port status on the target PLC"""
+    
+    try:
+        port = req.port if req.port is not None else 5000
+        service = get_plc_service(req.plc_type)
+        port_info = service.check_port_busy(req.ip, port)
+        
+        # For backward compatibility, keep port_busy field
+        is_busy = port_info.get('busy', False)
+        
+        return _ok(
+            port_info.get('message', f"Port {port} status checked"),
+            connected=is_busy,
+            port_busy=is_busy,
+            port_status=port_info.get('status', 'unknown'),
+            response_time=port_info.get('response_time')
+        )
+    except Exception as e:
+        logger.error(f"Port check failed: {e}")
+        return _fail(f"Port check failed: {e}", port_busy=False, port_status='error')
 
 
 # ──────────── Data Operations ────────────
@@ -97,10 +123,12 @@ def read_value(req: PLCReadRequest):
 
     try:
         val = service.read(req)
-        return _ok("Read OK", value=val, address=req.address, plc_type=req.plc_type.value)
+        return _ok("Read OK", value=val, address=req.address, plc_type=req.plc_type.value, connected=False)
     except Exception as e:
         logger.error(f"Read error [{req.plc_type.value}] {req.address}: {e}")
-        return _fail(str(e), connected=True)
+        return _fail(str(e), connected=False)
+    finally:
+        connection_cache.remove_connection(plc_id)
 
 
 @router.post("/write", response_model=PLCResponse)
@@ -115,10 +143,12 @@ def write_value(req: PLCWriteRequest):
         ok = service.write(req)
         if ok:
             logger.info(f"Write OK [{req.plc_type.value}] {req.address} = {req.value}")
-        return _ok("Write OK", address=req.address, plc_type=req.plc_type.value) if ok else _fail("Write returned False", connected=True)
+        return _ok("Write OK", address=req.address, plc_type=req.plc_type.value, connected=False) if ok else _fail("Write returned False", connected=False)
     except Exception as e:
         logger.error(f"Write error [{req.plc_type.value}] {req.address}: {e}")
-        return _fail(str(e), connected=True)
+        return _fail(str(e), connected=False)
+    finally:
+        connection_cache.remove_connection(plc_id)
 
 
 # ──────────── Info ────────────
