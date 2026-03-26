@@ -109,18 +109,33 @@ class FanucPLCService(BasePLCService):
             raise PLCReadError("Fanuc not connected")
         try:
             # RAW File / Memory Read (e.g. MD:PAVRPRST.VA or error.ls)
-            if ':' in req.address or req.address.upper().endswith(('.VA', '.VR', '.DT', '.LS', '.XML', '.TXT')):
+            diagnostic_files = ['errall.ls', 'erract.ls', 'errhist.ls', 'summary.dg', 'logbook.ls']
+            addr_lower = req.address.lower()
+            if addr_lower in diagnostic_files and ':' not in req.address:
+                req.address = f"MD:{req.address}"
+
+            if ':' in req.address or req.address.upper().endswith(('.VA', '.VR', '.DT', '.LS', '.XML', '.TXT', '.DG')):
                 controller = self.library_vars.get_robot_controller_by_ip(req.ip)
                 if not controller:
                     raise PLCReadError("Controller session lost")
-                
+
                 ftp = controller.get_ftp()
                 try:
                     ftp.connect({})
                     content, _ = ftp.get_file_content(req.address)
+                    # Ensure content is properly decoded as string
+                    if isinstance(content, bytes):
+                        content = content.decode('utf-8', errors='replace')
                     return content
+                except UnicodeDecodeError as e:
+                    raise PLCReadError(f"Failed to decode file content: {e}")
+                except Exception as e:
+                    raise PLCReadError(f"FTP file read failed: {e}")
                 finally:
-                    ftp.disconnect()
+                    try:
+                        ftp.disconnect()
+                    except:
+                        pass  # Ignore disconnect errors
 
             # Standard structured PaintTool Preset Read
             job_no, color_no, preset_type, preset_no, preset_name = self._parse_address(req.address)

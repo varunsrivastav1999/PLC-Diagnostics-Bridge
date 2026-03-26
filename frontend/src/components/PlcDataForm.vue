@@ -281,16 +281,27 @@
             <Button @click="fetchFanucDiagnostic('summary.dg')" label="SYSTEM SUMMARY" icon="pi pi-server" class="bg-blue-900/40 hover:bg-blue-800 text-blue-400 border border-blue-800/50 text-[10px] font-black tracking-wider px-3 py-1.5" :disabled="!store.isConnected || loading" />
             <Button @click="fetchFanucDiagnostic('logbook.ls')" label="LOGBOOK" icon="pi pi-book" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600/50 text-[10px] font-black tracking-wider px-3 py-1.5" :disabled="!store.isConnected || loading" />
             <div class="flex-1"></div>
+            <Button @click="clearDiagnosticLog" icon="pi pi-times" class="bg-slate-700 hover:bg-slate-600 text-slate-400 border border-slate-600/50 text-[10px] font-black tracking-wider px-3 py-1.5" v-tooltip.bottom="'Clear Log'" />
             <span v-if="loading" class="text-[10px] font-black text-amber-500 tracking-widest animate-pulse flex items-center"><i class="pi pi-spin pi-spinner mr-2"></i> FETCHING MD FILE...</span>
           </div>
 
           <!-- Log Viewer -->
-          <div class="flex-1 p-4 overflow-auto font-mono text-xs whitespace-pre bg-black text-green-400 leading-relaxed shadow-[inset_0_0_20px_#000]">
-            <div v-if="!diagnosticLog" class="h-full flex flex-col items-center justify-center opacity-30 select-none">
-               <i class="pi pi-server text-4xl mb-2"></i>
-               <span class="font-black tracking-widest uppercase text-[10px]">Select a diagnostic file to fetch via FTP</span>
+          <div class="flex-1 flex flex-col min-h-0">
+            <!-- Log Header -->
+            <div v-if="diagnosticLog" class="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-700 shrink-0">
+              <span class="text-[10px] font-black text-slate-400 tracking-widest uppercase">Diagnostic Output</span>
+              <span class="text-[9px] text-slate-500">{{ diagnosticLog.split('\n').length }} lines</span>
             </div>
-            <div v-else>{{ diagnosticLog }}</div>
+
+            <!-- Scrollable Log Content -->
+            <div class="flex-1 p-4 overflow-auto font-mono text-xs whitespace-pre-wrap bg-black text-green-400 border border-slate-800/50 leading-relaxed shadow-[inset_0_0_30px_rgba(0,0,0,0.8)] scrollbar-custom">
+              <div v-if="!diagnosticLog" class="h-full flex flex-col items-center justify-center opacity-30 select-none">
+                 <i class="pi pi-server text-4xl mb-3"></i>
+                 <span class="font-black tracking-[0.2em] uppercase text-[10px]">Select Diagnostic File</span>
+                 <span class="text-[9px] text-slate-500 mt-2 text-center max-w-xs uppercase tracking-widest">FTP LINK: errall.ls · erract.ls · errhist.ls · summary.dg · logbook.ls</span>
+              </div>
+              <div v-else class="min-h-full break-words selection:bg-green-500/30">{{ diagnosticLog }}</div>
+            </div>
           </div>
         </div>
       </template>
@@ -355,6 +366,11 @@ const fetchFanucDiagnostic = async (filename) => {
   } finally {
     loading.value = false;
   }
+}
+
+const clearDiagnosticLog = () => {
+  diagnosticLog.value = null;
+  toast.add({ severity: 'info', summary: 'Log Cleared', detail: 'Diagnostic log has been cleared', life: 1500 });
 }
 
 const displayColumns = computed(() => {
