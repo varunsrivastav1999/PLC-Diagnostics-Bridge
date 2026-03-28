@@ -1,13 +1,13 @@
 from fastapi import APIRouter
-from app.schemas.plc import PLCConnectRequest, PLCReadRequest, PLCWriteRequest, PLCType, DataType
+from app.schemas.plc import PLCConnectRequest, PLCReadRequest, PLCWriteRequest
 from app.schemas.response import PLCResponse
-from app.services.plc.factory import get_plc_service
-from app.utils.connection_cache import connection_cache, get_plc_id
 import logging
 from datetime import datetime, timezone
+from plcbridge_sdk.manager import PLCManager
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+manager = PLCManager()
 
 
 def _ts():
@@ -22,65 +22,16 @@ def _fail(msg: str, connected: bool = False, **kwargs) -> PLCResponse:
     return PLCResponse(success=False, message=msg, connected=connected, timestamp=_ts(), **kwargs)
 
 
-def _get_cached_service_id(plc_type: PLCType, ip: str, port: int | None) -> str:
-    return get_plc_id(ip, port, plc_type)
-
-
-def _build_connect_request(req: PLCReadRequest | PLCWriteRequest | PLCConnectRequest) -> PLCConnectRequest:
-    return PLCConnectRequest(
-        plc_type=req.plc_type,
-        ip=req.ip,
-        port=req.port,
-        rack=req.rack,
-        slot=req.slot,
-        cpu_type=getattr(req, "cpu_type", None),
-    )
-
-
-def _ensure_connected_service(req: PLCReadRequest | PLCWriteRequest):
-    plc_id = _get_cached_service_id(req.plc_type, req.ip, req.port)
-    service = connection_cache.get_connection(plc_id)
-
-    if service:
-        try:
-            if service.test_connection():
-                return plc_id, service
-        except Exception:
-            pass
-        connection_cache.remove_connection(plc_id)
-
-    service = get_plc_service(req.plc_type)
-    connected = service.connect(_build_connect_request(req))
-    if not connected:
-        raise RuntimeError("Connection returned False")
-
-    connection_cache.set_connection(plc_id, service)
-    logger.info(f"Auto-connected: {req.plc_type.value} @ {req.ip}:{req.port}")
-    return plc_id, service
-
-
 # ──────────── Connection Management ────────────
 
 @router.post("/connect", response_model=PLCResponse)
 def connect_plc(req: PLCConnectRequest):
-    plc_id = _get_cached_service_id(req.plc_type, req.ip, req.port)
-    service = connection_cache.get_connection(plc_id)
-
-    if service:
-        try:
-            if service.test_connection():
-                return _ok(f"Already connected to {req.plc_type.value} at {req.ip}", plc_type=req.plc_type.value)
-        except Exception:
-            connection_cache.remove_connection(plc_id)
-
     try:
-        service = get_plc_service(req.plc_type)
-        connected = service.connect(req)
-        if connected:
-            connection_cache.set_connection(plc_id, service)
-            logger.info(f"Connected: {req.plc_type.value} @ {req.ip}:{req.port}")
-            return _ok(f"Connected to {req.plc_type.value} at {req.ip}", plc_type=req.plc_type.value)
-        return _fail("Connection returned False")
+        already_connected = manager.is_connected(req)
+        manager.connect(req)
+        message = f"Already connected to {req.plc_type.value} at {req.ip}" if already_connected else f"Connected to {req.plc_type.value} at {req.ip}"
+        logger.info(f"Connected: {req.plc_type.value} @ {req.ip}:{req.port}")
+        return _ok(message, plc_type=req.plc_type.value)
     except Exception as e:
         logger.error(f"Connect failed: {req.plc_type.value} @ {req.ip} — {e}")
         return _fail(str(e))
@@ -88,20 +39,15 @@ def connect_plc(req: PLCConnectRequest):
 
 @router.post("/disconnect", response_model=PLCResponse)
 def disconnect_plc(req: PLCConnectRequest):
-    plc_id = _get_cached_service_id(req.plc_type, req.ip, req.port)
-    connection_cache.remove_connection(plc_id)
+    manager.disconnect(req)
     logger.info(f"Disconnected: {req.ip}:{req.port}")
     return _ok("Disconnected", connected=False)
 
 
 @router.post("/test-connection", response_model=PLCResponse)
 def test_connection_post(req: PLCConnectRequest):
-    plc_id = _get_cached_service_id(req.plc_type, req.ip, req.port)
-    service = connection_cache.get_connection(plc_id)
-    connected = False
     try:
-        if service:
-            connected = service.test_connection()
+        connected = manager.is_connected(req)
     except Exception:
         connected = False
     return PLCResponse(
@@ -117,9 +63,8 @@ def check_port_busy(req: PLCConnectRequest):
     """Check detailed port status on the target PLC"""
     
     try:
+        port_info = manager.check_port(req)
         port = req.port if req.port is not None else 5000
-        service = get_plc_service(req.plc_type)
-        port_info = service.check_port_busy(req.ip, port)
         
         # For backward compatibility, keep port_busy field
         is_busy = port_info.get('busy', False)
@@ -141,49 +86,32 @@ def check_port_busy(req: PLCConnectRequest):
 @router.post("/read", response_model=PLCResponse)
 def read_value(req: PLCReadRequest):
     try:
-        plc_id, service = _ensure_connected_service(req)
-    except Exception as e:
-        return _fail(f"Not connected, auto-connect failed: {e}")
-
-    try:
-        val = service.read(req)
-        return _ok("Read OK", value=val, address=req.address, plc_type=req.plc_type.value, connected=True)
+        val = manager.read(req)
     except Exception as e:
         logger.error(f"Read error [{req.plc_type.value}] {req.address}: {e}")
-        connection_cache.remove_connection(plc_id)
         return _fail(str(e), connected=False)
+
+    return _ok("Read OK", value=val, address=req.address, plc_type=req.plc_type.value, connected=True)
 
 
 @router.post("/write", response_model=PLCResponse)
 def write_value(req: PLCWriteRequest):
     try:
-        plc_id, service = _ensure_connected_service(req)
-    except Exception as e:
-        return _fail(f"Not connected, auto-connect failed: {e}")
-
-    try:
-        ok = service.write(req)
+        ok = manager.write(req)
         if ok:
             logger.info(f"Write OK [{req.plc_type.value}] {req.address} = {req.value}")
-        return _ok("Write OK", address=req.address, plc_type=req.plc_type.value, connected=True) if ok else _fail("Write returned False", connected=False)
     except Exception as e:
         logger.error(f"Write error [{req.plc_type.value}] {req.address}: {e}")
-        connection_cache.remove_connection(plc_id)
         return _fail(str(e), connected=False)
+
+    return _ok("Write OK", address=req.address, plc_type=req.plc_type.value, connected=True) if ok else _fail("Write returned False", connected=False)
 
 
 # ──────────── Info ────────────
 
 @router.get("/status", response_model=PLCResponse)
 def get_status(plc_type: str, ip: str, port: int = None):
-    plc_id = get_plc_id(ip, port, plc_type)
-    service = connection_cache.get_connection(plc_id)
-    connected = False
-    if service:
-        try:
-            connected = service.test_connection()
-        except Exception:
-            connected = False
+    connected = manager.is_connected(PLCConnectRequest(plc_type=plc_type, ip=ip, port=port))
     return PLCResponse(
         success=connected,
         message="Connected" if connected else "Not connected",
@@ -194,4 +122,4 @@ def get_status(plc_type: str, ip: str, port: int = None):
 
 @router.get("/supported-types", response_model=list[str])
 def get_supported_types():
-    return [t.value for t in PLCType]
+    return manager.list_supported_types()

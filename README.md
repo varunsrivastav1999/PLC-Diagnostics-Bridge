@@ -57,6 +57,7 @@
 - 🩺 **Connection Diagnostics** — Health checks, connection pooling, timeout management
 - 🖥️ **Responsive Operations UI** — Desktop, tablet, and mobile-ready dashboard with internal scrolling and compact workspace summaries
 - 📱 **Installable Mobile App Experience** — PWA manifest, service worker, and home-screen support for iPhone and Android
+- 📦 **Reusable Python SDK** — `plcbridge-sdk` manager layer for custom SCADA websites, scripts, and backend services
 - 🐳 **Fully Dockerized** — Single `docker-compose up` deployment
 - ⚡ **Production Hardened** — Structured logging, global exception handling, resource limits
 
@@ -95,6 +96,65 @@ uvicorn app.main:app --reload --port 8000
 cd frontend
 npm install
 npm run dev
+```
+
+## 📦 Use As A Python Library
+
+The backend now exposes a reusable package at `backend/plcbridge_sdk` so you can build your own SCADA dashboard, script runner, or automation service on top of the same PLC communication layer.
+
+### Install In Editable Mode
+
+```bash
+cd backend
+pip install -e .
+```
+
+### Example
+
+```python
+from plcbridge_sdk import PLCManager, ConnectionParams, ReadParams, WriteParams, DataType
+
+manager = PLCManager()
+
+manager.connect(ConnectionParams(
+    plc_type="siemens",
+    ip="192.168.0.10",
+    port=102,
+    rack=0,
+    slot=1,
+))
+
+value = manager.read(ReadParams(
+    plc_type="siemens",
+    ip="192.168.0.10",
+    port=102,
+    data_type=DataType.INT,
+    address="DB1.DBW2",
+))
+
+manager.write(WriteParams(
+    plc_type="siemens",
+    ip="192.168.0.10",
+    port=102,
+    data_type=DataType.INT,
+    address="DB1.DBW2",
+    value=123,
+))
+```
+
+### Register A Custom Driver
+
+```python
+from plcbridge_sdk import PLCManager, BasePLCService
+
+class MyCustomPLC(BasePLCService):
+    def connect(self, req): ...
+    def disconnect(self): ...
+    def test_connection(self): ...
+    def read(self, req): ...
+    def write(self, req): ...
+
+PLCManager.register_driver("myplc", MyCustomPLC)
 ```
 
 ## 📱 Mobile And Tablet Use
@@ -149,7 +209,9 @@ plc-diagnostics-bridge/
 ├── docker-compose.yml          # Orchestration
 ├── backend/
 │   ├── Dockerfile
+│   ├── pyproject.toml         # SDK packaging metadata
 │   ├── requirements.txt
+│   ├── plcbridge_sdk/         # Reusable Python SDK
 │   └── app/
 │       ├── main.py             # FastAPI entrypoint
 │       ├── api/                # Route handlers
