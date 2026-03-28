@@ -22,6 +22,7 @@ The Siemens PLC service uses the **Snap7** library to communicate with Siemens S
 ## Address Format
 Siemens uses DB (Data Block) addressing:
 - `DB1.DBX0.0` - Bool at DB1, byte 0, bit 0
+- `DB1.DBB1` - Byte-based start offset, commonly used for strings
 - `DB1.DBW2` - Word (16-bit) at DB1, byte 2
 - `DB1.DBD4` - Double word (32-bit) at DB1, byte 4
 
@@ -63,7 +64,7 @@ POST /api/plc/write
 
 ## Troubleshooting
 - **Connection failed**: Check IP address, rack/slot configuration
-- **Read/write errors**: Verify DB exists and address is valid
+- **Read/write errors**: Verify DB exists and address matches the data type. `BOOL` must use `DBX...`, while numeric and string operations must not use `DBX...`
 - **Timeout**: Increase `CONNECTION_TIMEOUT_SEC` in environment
 - **Siemens specific**: Ensure PLC is in RUN mode and PUT/GET communication is enabled
 

@@ -15,6 +15,8 @@ class FanucPLCService(BasePLCService):
     preset_type must be 'BELL' or 'GUN'.
     preset_name examples for BELL: 'fluid_rate', 'bell_speed', 'shape_air1', 'estat_KV', 'shape_air2'
     """
+    SUPPORTED_PRESET_TYPES = {"BELL", "GUN"}
+
     def __init__(self):
         super().__init__()
         # Initialize the global singleton settings
@@ -94,12 +96,15 @@ class FanucPLCService(BasePLCService):
 
     def _parse_address(self, address: str):
         """Parse address like '1,1,BELL', '1,1,BELL,1', or '1,1,BELL,1,fluid_rate'"""
-        parts = address.split(',')
+        parts = [part.strip() for part in address.split(',')]
         if len(parts) < 3 or len(parts) > 5:
             raise ValueError("Fanuc address must be in format: 'job_no,color_no,preset_type,[preset_no],[preset_name]' (e.g. '1,1,BELL')")
         job_no = int(parts[0])
         color_no = int(parts[1])
         preset_type = parts[2].upper()
+        if preset_type not in self.SUPPORTED_PRESET_TYPES:
+            supported = ", ".join(sorted(self.SUPPORTED_PRESET_TYPES))
+            raise ValueError(f"Unsupported Fanuc preset_type '{preset_type}'. Supported types: {supported}")
         preset_no = int(parts[3]) if len(parts) > 3 else None
         preset_name = parts[4] if len(parts) > 4 else None
         return job_no, color_no, preset_type, preset_no, preset_name
@@ -110,11 +115,12 @@ class FanucPLCService(BasePLCService):
         try:
             # RAW File / Memory Read (e.g. MD:PAVRPRST.VA or error.ls)
             diagnostic_files = ['errall.ls', 'erract.ls', 'errhist.ls', 'summary.dg', 'logbook.ls']
-            addr_lower = req.address.lower()
-            if addr_lower in diagnostic_files and ':' not in req.address:
-                req.address = f"MD:{req.address}"
+            address = req.address
+            addr_lower = address.lower()
+            if addr_lower in diagnostic_files and ':' not in address:
+                address = f"MD:{address}"
 
-            if ':' in req.address or req.address.upper().endswith(('.VA', '.VR', '.DT', '.LS', '.XML', '.TXT', '.DG')):
+            if ':' in address or address.upper().endswith(('.VA', '.VR', '.DT', '.LS', '.XML', '.TXT', '.DG')):
                 controller = self.library_vars.get_robot_controller_by_ip(req.ip)
                 if not controller:
                     raise PLCReadError("Controller session lost")
@@ -122,7 +128,7 @@ class FanucPLCService(BasePLCService):
                 ftp = controller.get_ftp()
                 try:
                     ftp.connect({})
-                    content, _ = ftp.get_file_content(req.address)
+                    content, _ = ftp.get_file_content(address)
                     # Ensure content is properly decoded as string
                     if isinstance(content, bytes):
                         content = content.decode('utf-8', errors='replace')
@@ -138,7 +144,7 @@ class FanucPLCService(BasePLCService):
                         pass  # Ignore disconnect errors
 
             # Standard structured PaintTool Preset Read
-            job_no, color_no, preset_type, preset_no, preset_name = self._parse_address(req.address)
+            job_no, color_no, preset_type, preset_no, preset_name = self._parse_address(address)
             
             args = {
                 'robot_ip': req.ip,

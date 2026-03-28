@@ -1,59 +1,60 @@
 <template>
-  <Card class="border-0 h-full overflow-hidden flex flex-col">
+  <Card class="telemetry-card data-matrix-card border-0 h-full overflow-auto flex flex-col">
     <template #content>
-      <!-- Unified Header bar -->
-      <div class="flex justify-between items-center border-b border-slate-800/50 pb-3 mb-4">
-        <!-- Title -->
-        <div class="flex items-center gap-2">
-          <template v-if="store.connectionConfig.plc_type === 'fanuc'">
-             <div class="h-2 w-2 rounded-full animate-glow-pulse bg-indigo-500"></div>
-             <span class="text-[10px] font-black tracking-[0.2em] uppercase text-indigo-500">Paint Robot Control</span>
-          </template>
-          <template v-else>
-             <div class="h-2 w-2 rounded-full animate-glow-pulse" :class="operation === 'read' ? 'bg-cyan-500' : 'bg-amber-500'"></div>
-             <span class="text-[10px] font-black tracking-[0.2em] uppercase" :class="operation === 'read' ? 'text-cyan-500' : 'text-amber-500'">Operations Terminal</span>
-          </template>
-        </div>
-        
-        <!-- Controls -->
-        <div class="flex items-center gap-3">
-          <!-- Fanuc specific mode toggle -->
-          <div v-if="store.connectionConfig.plc_type === 'fanuc'" class="flex gap-1 p-0.5 bg-slate-950/80 rounded-lg border border-indigo-900/50">
-            <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[9px] font-black tracking-widest uppercase transition-all duration-200" 
-                    :class="fanucMode === 'pendant' ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 border border-transparent hover:text-slate-400'" 
-                    @click="fanucMode = 'pendant'">
-              <i class="pi pi-table" style="font-size: 9px;"></i> iPendant VIRTUAL
-            </button>
-            <div class="w-px h-4 bg-slate-700/50 self-center mx-1"></div>
-            <!-- Fanuc Diagnostics -->
-            <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[9px] font-black tracking-widest uppercase transition-all duration-200" 
-                    :class="fanucMode === 'diagnostics' ? 'bg-red-500/15 text-red-400 border border-red-500/30' : 'text-slate-500 border border-transparent hover:text-slate-400'" 
-                    @click="fanucMode = 'diagnostics'">
-              <i class="pi pi-heartbeat" style="font-size: 9px;"></i> DIAGNOSTICS
-            </button>
+      <div class="flex h-full min-h-0 flex-col overflow-y-auto pr-1">
+        <!-- Unified Header bar -->
+        <div class="mb-4 flex flex-col gap-3 border-b border-slate-800/50 pb-3 xl:flex-row xl:items-center xl:justify-between">
+          <!-- Title -->
+          <div class="flex items-center gap-2">
+            <template v-if="store.connectionConfig.plc_type === 'fanuc'">
+               <div class="h-2 w-2 rounded-full animate-glow-pulse bg-indigo-500"></div>
+               <span class="text-[10px] font-black tracking-[0.2em] uppercase text-indigo-500">Paint Robot Control</span>
+            </template>
+            <template v-else>
+               <div class="h-2 w-2 rounded-full animate-glow-pulse" :class="operation === 'read' ? 'bg-cyan-500' : 'bg-amber-500'"></div>
+               <span class="text-[10px] font-black tracking-[0.2em] uppercase" :class="operation === 'read' ? 'text-cyan-500' : 'text-amber-500'">Operations Terminal</span>
+            </template>
           </div>
+          
+          <!-- Controls -->
+          <div class="flex flex-wrap items-center gap-3">
+            <!-- Fanuc specific mode toggle -->
+            <div v-if="store.connectionConfig.plc_type === 'fanuc'" class="flex flex-wrap gap-1 p-0.5 bg-slate-950/80 rounded-lg border border-indigo-900/50">
+              <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[9px] font-black tracking-widest uppercase transition-all duration-200" 
+                      :class="fanucMode === 'pendant' ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 border border-transparent hover:text-slate-400'" 
+                      @click="fanucMode = 'pendant'">
+                <i class="pi pi-table" style="font-size: 9px;"></i> iPendant VIRTUAL
+              </button>
+              <div class="w-px h-4 bg-slate-700/50 self-center mx-1"></div>
+              <!-- Fanuc Diagnostics -->
+              <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[9px] font-black tracking-widest uppercase transition-all duration-200" 
+                      :class="fanucMode === 'diagnostics' ? 'bg-red-500/15 text-red-400 border border-red-500/30' : 'text-slate-500 border border-transparent hover:text-slate-400'" 
+                      @click="fanucMode = 'diagnostics'">
+                <i class="pi pi-heartbeat" style="font-size: 9px;"></i> DIAGNOSTICS
+              </button>
+            </div>
 
-          <!-- Standard Operation Toggle -->
-          <div v-if="store.connectionConfig.plc_type !== 'fanuc'" class="flex gap-1 p-0.5 bg-slate-950/80 rounded-lg border border-slate-800/50">
-            <button class="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-[10px] font-black tracking-widest uppercase transition-all duration-200" 
-                    :class="operation === 'read' ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-[0_0_8px_rgba(34,211,238,0.1)]' : 'text-slate-500 border border-transparent hover:text-slate-400'" 
-                    @click="operation = 'read'">
-              <i class="pi pi-eye" style="font-size: 10px;"></i> READ
-            </button>
-            <button class="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-[10px] font-black tracking-widest uppercase transition-all duration-200" 
-                    :class="operation === 'write' ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.1)]' : 'text-slate-500 border border-transparent hover:text-slate-400'" 
-                    @click="operation = 'write'">
-              <i class="pi pi-pencil" style="font-size: 10px;"></i> WRITE
-            </button>
+            <!-- Standard Operation Toggle -->
+            <div v-if="store.connectionConfig.plc_type !== 'fanuc'" class="flex flex-wrap gap-1 p-0.5 bg-slate-950/80 rounded-lg border border-slate-800/50">
+              <button class="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-[10px] font-black tracking-widest uppercase transition-all duration-200" 
+                      :class="operation === 'read' ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-[0_0_8px_rgba(34,211,238,0.1)]' : 'text-slate-500 border border-transparent hover:text-slate-400'" 
+                      @click="operation = 'read'">
+                <i class="pi pi-eye" style="font-size: 10px;"></i> READ
+              </button>
+              <button class="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-[10px] font-black tracking-widest uppercase transition-all duration-200" 
+                      :class="operation === 'write' ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.1)]' : 'text-slate-500 border border-transparent hover:text-slate-400'" 
+                      @click="operation = 'write'">
+                <i class="pi pi-pencil" style="font-size: 10px;"></i> WRITE
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-      
-      <!-- Content area (Raw Terminal) -->
-      <template v-if="store.connectionConfig.plc_type !== 'fanuc'">
-        <div class="flex flex-col lg:flex-row gap-5 flex-1 min-h-0">
+
+        <!-- Content area (Raw Terminal) -->
+        <template v-if="store.connectionConfig.plc_type !== 'fanuc'">
+          <div class="flex flex-col lg:flex-row gap-5 flex-1 min-h-0">
         <!-- Left: Controls -->
-        <form @submit.prevent="submitOperation" class="flex flex-col gap-4 w-full lg:w-[42%] shrink-0">
+        <form @submit.prevent="submitOperation" class="flex flex-col gap-4 w-full lg:w-[42%] shrink-0 overflow-y-auto">
           <!-- Data type & bit offset & register count -->
           <div class="grid gap-3" :class="showExtraField ? 'grid-cols-2' : 'grid-cols-1'">
             <div class="flex flex-col gap-1">
@@ -129,7 +130,7 @@
         </form>
 
         <!-- Right: Display Terminal -->
-        <div class="flex-1 flex items-center justify-center p-6 bg-slate-950/60 rounded-2xl border border-slate-800/40 relative overflow-hidden min-h-[250px]">
+        <div class="flex-1 flex items-center justify-center p-6 bg-slate-950/60 rounded-2xl border border-slate-800/40 relative overflow-auto min-h-[250px]">
            <!-- Grid decoration -->
            <div class="absolute inset-0 opacity-[0.04]" style="background-image: linear-gradient(#475569 1px, transparent 1px), linear-gradient(90deg, #475569 1px, transparent 1px); background-size: 24px 24px;"></div>
            
@@ -177,13 +178,13 @@
                   </div>
               </div>
            </div>
-        </div>
-        </div>
-      </template>
+          </div>
+          </div>
+        </template>
 
-      <!-- Fanuc Paint Robot iPendant -->
-      <template v-if="store.connectionConfig.plc_type === 'fanuc' && fanucMode === 'pendant'">
-        <div class="flex flex-col flex-1 min-h-0 relative select-none">
+        <!-- Fanuc Paint Robot iPendant -->
+        <template v-if="store.connectionConfig.plc_type === 'fanuc' && fanucMode === 'pendant'">
+          <div class="flex flex-col flex-1 min-h-0 relative select-none">
           
           <!-- Hardware Pendant Shell -->
           <div class="flex-1 flex flex-col bg-slate-800 rounded-3xl border border-slate-700 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden relative p-3 pb-4">
@@ -217,7 +218,7 @@
                 </div>
                 <div class="flex flex-col gap-1.5 w-32">
                   <label class="text-[9px] font-black text-blue-200 tracking-widest uppercase">Config Type</label>
-                  <Dropdown v-model="fanucForm.preset_type" :options="['BELL', 'GUN', 'ELECTROSTATIC', '2K_MIX']" class="w-full text-xs font-bold bg-slate-900/80 border-blue-500/30 text-white" :disabled="!store.isConnected" />
+                  <Dropdown v-model="fanucForm.preset_type" :options="fanucPresetTypes" class="w-full text-xs font-bold bg-slate-900/80 border-blue-500/30 text-white" :disabled="!store.isConnected" />
                 </div>
                 
                 <Button @click="fetchFanucPresets" label="LOAD FROM ROBOT" icon="pi pi-refresh" 
@@ -266,12 +267,12 @@
             </div>
             
           </div>
-        </div>
-      </template>
+          </div>
+        </template>
 
-      <!-- Fanuc Diagnostics App -->
-      <template v-if="store.connectionConfig.plc_type === 'fanuc' && fanucMode === 'diagnostics'">
-        <div class="flex flex-col flex-1 min-h-0 relative bg-slate-900 rounded-xl overflow-hidden shadow-inner border border-slate-800">
+        <!-- Fanuc Diagnostics App -->
+        <template v-if="store.connectionConfig.plc_type === 'fanuc' && fanucMode === 'diagnostics'">
+          <div class="flex flex-col flex-1 min-h-0 relative bg-slate-900 rounded-xl overflow-hidden shadow-inner border border-slate-800">
           
           <!-- Top Tool Bar -->
           <div class="flex flex-wrap gap-2 p-3 bg-slate-950 border-b border-slate-800 shrink-0">
@@ -303,9 +304,9 @@
               <div v-else class="min-h-full break-words selection:bg-green-500/30">{{ diagnosticLog }}</div>
             </div>
           </div>
-        </div>
-      </template>
-
+          </div>
+        </template>
+      </div>
     </template>
   </Card>
 </template>
@@ -326,6 +327,7 @@ const isPollingLocal = ref(false)
 const lastReadResult = ref(null)
 
 const dataTypes = ref(['BOOL', 'INT', 'DINT', 'REAL', 'FLOAT', 'STRING'])
+const fanucPresetTypes = ['BELL', 'GUN']
 
 const form = ref({
   data_type: 'INT',
@@ -384,25 +386,6 @@ const displayColumns = computed(() => {
       { key: 'estat_uA', label: 'E-Stat Curr', unit: 'µA', min: 0, max: 250 }
     ];
   }
-  if (fanucForm.value.preset_type === 'ELECTROSTATIC') {
-    return [
-      { key: 'fluid_rate', label: 'Fluid Rate', unit: 'cc/min', min: 0, max: 2000 },
-      { key: 'atom_air', label: 'Atom Air', unit: 'L/min', min: 0, max: 800 },
-      { key: 'fan_air', label: 'Fan Air', unit: 'L/min', min: 0, max: 800 },
-      { key: 'estat_KV', label: 'E-Stat', unit: 'kV', min: 0, max: 100 },
-      { key: 'estat_uA', label: 'E-Stat Curr', unit: 'µA', min: 0, max: 250 }
-    ];
-  }
-  if (fanucForm.value.preset_type === '2K_MIX') {
-    return [
-      { key: 'fluid_rate', label: 'Fluid Rate', unit: 'cc/min', min: 0, max: 2000 },
-      { key: 'atom_air', label: 'Atom Air', unit: 'L/min', min: 0, max: 800 },
-      { key: 'fan_air', label: 'Fan Air', unit: 'L/min', min: 0, max: 800 },
-      { key: 'mix_ratio', label: 'Mix Ratio', unit: '%', min: 0, max: 100 },
-      { key: 'pot_life', label: 'Pot Life', unit: 'min', min: 0, max: 600 },
-      { key: 'estat_KV', label: 'E-Stat', unit: 'kV', min: 0, max: 100 }
-    ];
-  }
   // Default (GUN)
   return [
     { key: 'fluid_rate', label: 'Fluid Rate', unit: 'cc/min', min: 0, max: 2000 },
@@ -434,7 +417,7 @@ const displayWriteVal = computed(() => {
 const exampleAddress = computed(() => {
   const t = store.connectionConfig.plc_type;
   if (t === 'siemens') return form.value.data_type === 'BOOL' ? 'DB1.DBX0.0' : 'DB1.DBW2';
-  if (t === 'mitsubishi') return form.value.data_type === 'BOOL' ? 'M10' : 'D100';
+  if (t === 'mitsubishi') return form.value.data_type === 'BOOL' ? 'M10' : 'D100 or ZR100';
   if (t === 'rockwell') return 'MyTag';
   if (t === 'abb') return form.value.data_type === 'BOOL' ? '00001' : '40001';
   if (t === 'fanuc') return 'R100';

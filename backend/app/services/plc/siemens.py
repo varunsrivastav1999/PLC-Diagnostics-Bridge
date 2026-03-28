@@ -45,7 +45,7 @@ class SiemensPLCService(BasePLCService):
 
     def _parse_address(self, address: str):
         """Parse Siemens DB address: DB1.DBX0.0, DB1.DBW2, DB1.DBD4"""
-        match = re.match(r"DB(\d+)\.DB([XWBDP])(\d+)(?:\.(\d+))?", address.upper())
+        match = re.match(r"DB(\d+)\.DB([XWBD])(\d+)(?:\.(\d+))?$", address.upper())
         if not match:
             raise ValueError(f"Invalid Siemens DB address: {address}. Use 'DB1.DBX0.0' or 'DB1.DBW2'")
         db_number = int(match.group(1))
@@ -54,13 +54,31 @@ class SiemensPLCService(BasePLCService):
         bit_offset = int(match.group(4)) if match.group(4) else 0
         return db_number, data_type_char, start_byte, bit_offset
 
+    def _validate_address_for_request(self, req: PLCReadRequest | PLCWriteRequest, dt_char: str, bit_offset: int) -> None:
+        if req.data_type == DataType.BOOL:
+            if dt_char != "X":
+                raise ValueError("BOOL reads and writes require a DBX address such as 'DB1.DBX0.0'")
+            target_bit = self._resolve_bit_offset(req.bit_offset, bit_offset)
+            if target_bit < 0 or target_bit > 7:
+                raise ValueError("Siemens bit offset must be between 0 and 7")
+            return
+
+        if dt_char == "X":
+            raise ValueError(f"{req.data_type.value} reads and writes cannot use a DBX bit address")
+
+    def _resolve_bit_offset(self, requested_bit_offset: int | None, address_bit_offset: int) -> int:
+        if requested_bit_offset is not None and requested_bit_offset > 0:
+            return requested_bit_offset
+        return address_bit_offset
+
     def read(self, req: PLCReadRequest) -> Any:
         try:
             db_number, dt_char, start, bit_offset = self._parse_address(req.address)
+            self._validate_address_for_request(req, dt_char, bit_offset)
 
             if req.data_type == DataType.BOOL:
                 data = self.client.db_read(db_number, start, 1)
-                target_bit = req.bit_offset if req.bit_offset is not None and req.bit_offset > 0 else bit_offset
+                target_bit = self._resolve_bit_offset(req.bit_offset, bit_offset)
                 return snap7.util.get_bool(data, 0, target_bit)
 
             elif req.data_type == DataType.INT:
@@ -79,8 +97,8 @@ class SiemensPLCService(BasePLCService):
                 # S7 string: byte 0 = max length, byte 1 = actual length, bytes 2+ = chars
                 # Read header first to get actual length
                 header = self.client.db_read(db_number, start, 2)
-                # max_len = header[0]
-                actual_len = header[1]
+                max_len = header[0]
+                actual_len = min(header[1], max_len)
                 if actual_len > 0:
                     data = self.client.db_read(db_number, start, 2 + actual_len)
                     return data[2:2 + actual_len].decode('ascii', errors='replace')
@@ -95,11 +113,12 @@ class SiemensPLCService(BasePLCService):
     def write(self, req: PLCWriteRequest) -> bool:
         try:
             db_number, dt_char, start, bit_offset = self._parse_address(req.address)
+            self._validate_address_for_request(req, dt_char, bit_offset)
 
             if req.data_type == DataType.BOOL:
                 # Read-modify-write for bit safety
                 data = bytearray(self.client.db_read(db_number, start, 1))
-                target_bit = req.bit_offset if req.bit_offset is not None and req.bit_offset > 0 else bit_offset
+                target_bit = self._resolve_bit_offset(req.bit_offset, bit_offset)
                 snap7.util.set_bool(data, 0, target_bit, bool(req.value))
                 self.client.db_write(db_number, start, data)
 

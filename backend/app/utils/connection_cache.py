@@ -64,5 +64,7 @@ class ConnectionCache:
 connection_cache = ConnectionCache()
 
 
-def get_plc_id(ip: str, port: Optional[int] = None) -> str:
-    return f"{ip}:{port}" if port else ip
+def get_plc_id(ip: str, port: Optional[int] = None, plc_type: Optional[object] = None) -> str:
+    plc_type_value = getattr(plc_type, "value", plc_type)
+    base_id = f"{ip}:{port}" if port is not None else ip
+    return f"{plc_type_value}@{base_id}" if plc_type_value else base_id

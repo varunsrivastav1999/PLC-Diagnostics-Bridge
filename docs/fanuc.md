@@ -27,6 +27,8 @@ Fanuc uses structured preset addressing:
 - **BELL**: Bell/bell parameters (fluid_rate, bell_speed, shape_air1, estat_KV, shape_air2)
 - **GUN**: Gun parameters (fluid_rate, atom_air, fan_air, estat_KV)
 
+Only `BELL` and `GUN` preset tables are currently supported by the bundled `fxvrlib`.
+
 ## Data Types
 - **FLOAT**: All preset values are 32-bit floats
 - **INT**: Job and color numbers are integers

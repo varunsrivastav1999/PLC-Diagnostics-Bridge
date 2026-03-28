@@ -1,5 +1,6 @@
 import struct
 import socket
+import re
 import pymcprotocol
 from typing import Any
 from app.services.plc.base import BasePLCService
@@ -71,9 +72,16 @@ class MitsubishiPLCService(BasePLCService):
             words.append(struct.unpack('<H', data[i:i+2])[0])
         return words
 
+    def _normalize_headdevice(self, address: str) -> str:
+        """Normalize Mitsubishi device names so tags like `zr100` work reliably."""
+        headdevice = re.sub(r"\s+", "", address or "").upper()
+        if not re.fullmatch(r"[A-Z]+[0-9A-F]+", headdevice):
+            raise ValueError(f"Invalid Mitsubishi address: {address}")
+        return headdevice
+
     def read(self, req: PLCReadRequest) -> Any:
         try:
-            headdevice = req.address
+            headdevice = self._normalize_headdevice(req.address)
 
             if req.data_type == DataType.BOOL:
                 bit_data = self.client.batchread_bitunits(headdevice, 1)
@@ -122,7 +130,7 @@ class MitsubishiPLCService(BasePLCService):
 
     def write(self, req: PLCWriteRequest) -> bool:
         try:
-            headdevice = req.address
+            headdevice = self._normalize_headdevice(req.address)
 
             if req.data_type == DataType.BOOL:
                 self.client.batchwrite_bitunits(headdevice, [int(bool(req.value))])

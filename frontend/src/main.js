@@ -44,3 +44,13 @@ app.component('Toast', Toast)
 app.component('Checkbox', Checkbox)
 
 app.mount('#app')
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+        try {
+            await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+        } catch (error) {
+            console.warn('Service worker registration failed:', error)
+        }
+    })
+}

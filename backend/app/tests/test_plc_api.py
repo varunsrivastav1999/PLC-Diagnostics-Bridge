@@ -1,8 +1,17 @@
+import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from app.main import app
+from app.utils.connection_cache import connection_cache, get_plc_id
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def clear_connections():
+    connection_cache.clear_all()
+    yield
+    connection_cache.clear_all()
 
 def test_health_check():
     response = client.get("/health")
@@ -48,6 +57,34 @@ def test_mock_fanuc_connect_read_write():
     assert res.status_code == 200
     assert res.json()["success"] is True
 
+def test_mock_fanuc_write_auto_connects():
+    from app.services.plc.fanuc import FanucPLCService
+    FanucPLCService.connect = lambda self, req: True
+    FanucPLCService.test_connection = lambda self: True
+    FanucPLCService.write = lambda self, req: True
+    FanucPLCService.disconnect = lambda self: True
+
+    write_payload = {
+        "plc_type": "fanuc",
+        "ip": "127.0.0.1",
+        "data_type": "INT",
+        "address": "SUMMARY.DG",
+        "value": 42
+    }
+
+    res = client.post("/api/plc/write", json=write_payload)
+    assert res.status_code == 200
+    assert res.json()["success"] is True
+
+def test_connection_cache_distinguishes_plc_type():
+    service = object()
+    siemens_id = get_plc_id("192.168.0.10", 102, "siemens")
+    mitsubishi_id = get_plc_id("192.168.0.10", 102, "mitsubishi")
+
+    assert siemens_id != mitsubishi_id
+    connection_cache._connections[siemens_id] = service
+    assert connection_cache.get_connection(mitsubishi_id) is None
+
 def test_mock_siemens_address_parsing():
     """Test Siemens address parsing functionality"""
     from app.services.plc.siemens import SiemensPLCService
@@ -66,10 +103,26 @@ def test_mock_siemens_address_parsing():
     except ValueError:
         pass
 
+def test_mock_siemens_rejects_word_address_for_bool():
+    from app.services.plc.siemens import SiemensPLCService
+    from app.schemas.plc import DataType
+    from app.core.exceptions import PLCReadError
+
+    service = SiemensPLCService()
+    service.client = Mock()
+
+    class MockRequest:
+        def __init__(self, data_type, address, bit_offset=0):
+            self.data_type = data_type
+            self.address = address
+            self.bit_offset = bit_offset
+
+    with pytest.raises(PLCReadError):
+        service.read(MockRequest(DataType.BOOL, "DB1.DBW0", 0))
+
 def test_mock_siemens_connect_read_write():
     """Test Siemens PLC service with mocked snap7 client"""
     from app.services.plc.siemens import SiemensPLCService
-    from unittest.mock import Mock, patch
     
     # Mock the snap7 client
     with patch('snap7.client.Client') as mock_client_class:
@@ -124,3 +177,36 @@ def test_mock_siemens_connect_read_write():
         
         read_req = MockRequest(DataType.STRING, "DB1.DBD12", 0)
         assert service.read(read_req) == "Test"
+
+def test_mock_mitsubishi_zr_read_write():
+    from app.services.plc.mitsubishi import MitsubishiPLCService
+    from app.schemas.plc import DataType
+
+    service = MitsubishiPLCService()
+    service.client = Mock()
+    service.client.batchread_wordunits.return_value = [321]
+
+    class MockReadRequest:
+        def __init__(self, data_type, address, register_count=1):
+            self.data_type = data_type
+            self.address = address
+            self.register_count = register_count
+
+    class MockWriteRequest(MockReadRequest):
+        def __init__(self, data_type, address, value, register_count=1):
+            super().__init__(data_type, address, register_count)
+            self.value = value
+
+    assert service.read(MockReadRequest(DataType.INT, "zr100")) == 321
+    service.client.batchread_wordunits.assert_called_once_with("ZR100", 1)
+
+    assert service.write(MockWriteRequest(DataType.INT, "zr100", 123)) is True
+    service.client.batchwrite_wordunits.assert_called_once_with("ZR100", [123])
+
+def test_mock_fanuc_rejects_unsupported_preset_type():
+    from app.services.plc.fanuc import FanucPLCService
+
+    service = FanucPLCService()
+
+    with pytest.raises(ValueError):
+        service._parse_address("1,1,ELECTROSTATIC")

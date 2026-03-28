@@ -32,6 +32,7 @@ The FX5U-500B is a high-performance compact PLC that includes:
 ## Address Format
 Mitsubishi uses device addressing:
 - `D0` - Data register D0 (16-bit)
+- `ZR0` - Extended file register ZR0 (word device)
 - `M0` - Internal relay M0 (bit)
 - `X0` - Input X0 (bit)
 - `Y0` - Output Y0 (bit)
@@ -39,10 +40,12 @@ Mitsubishi uses device addressing:
 
 ## Data Types
 - **BOOL**: Bit devices (M, X, Y, etc.)
-- **INT**: 16-bit signed integer (D, R registers)
+- **INT**: 16-bit signed integer (D, R, ZR registers)
 - **DINT**: 32-bit signed integer (two consecutive registers)
 - **REAL**: 32-bit IEEE 754 float (two consecutive registers)
 - **STRING**: ASCII string in consecutive registers
+
+`ZR` is an address/tag prefix, not a separate `data_type`. Use `INT`, `DINT`, `REAL`, `FLOAT`, or `STRING` with a `ZR...` address.
 
 ## Example Usage
 ```python
@@ -58,7 +61,7 @@ POST /api/plc/connect
 POST /api/plc/read
 {
   "ip": "192.168.1.101",
-  "address": "D0",
+  "address": "ZR100",
   "data_type": "INT"
 }
 
@@ -66,7 +69,7 @@ POST /api/plc/read
 POST /api/plc/write
 {
   "ip": "192.168.1.101",
-  "address": "D0",
+  "address": "ZR100",
   "data_type": "INT",
   "value": 5678
 }

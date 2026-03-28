@@ -55,7 +55,8 @@
 - 🔌 **Multi-PLC Support** — Siemens (S7), Rockwell (CIP), Mitsubishi (MC Protocol, including FX5U-500B), ABB (Modbus/TCP), Fanuc
 - 📖 **Read & Write** — Bool, Int, DInt, Real/Float, String data types
 - 🩺 **Connection Diagnostics** — Health checks, connection pooling, timeout management
-- 🖥️ **SCADA-Style UI** — Professional dark-themed dashboard with real-time feedback
+- 🖥️ **Responsive Operations UI** — Desktop, tablet, and mobile-ready dashboard with internal scrolling and compact workspace summaries
+- 📱 **Installable Mobile App Experience** — PWA manifest, service worker, and home-screen support for iPhone and Android
 - 🐳 **Fully Dockerized** — Single `docker-compose up` deployment
 - ⚡ **Production Hardened** — Structured logging, global exception handling, resource limits
 
@@ -96,6 +97,51 @@ npm install
 npm run dev
 ```
 
+## 📱 Mobile And Tablet Use
+
+The frontend now supports:
+
+- **Desktop web** — full dashboard layout with fixed control rail and live operations workspace
+- **Tablet web** — stacked layout with scroll-safe cards and touch-friendly spacing
+- **Phone web** — compact workspace summary, full-page scrolling, and touch-friendly inputs
+- **Installable mobile app** — add the PWA to the home screen on iPhone and Android
+
+### Run On A Phone Or Tablet
+
+For local testing on the same Wi-Fi network:
+
+1. Start the backend on your computer.
+2. Start the frontend with `npm run dev -- --host 0.0.0.0` inside `frontend/`.
+3. Find your computer's local IP address, for example `192.168.0.25`.
+4. Open `http://<your-computer-ip>:5173` on the phone or tablet browser.
+
+For Docker deployments on the same network:
+
+1. Start the stack with `docker-compose up --build`.
+2. Open `http://<your-computer-ip>:8080` on the phone or tablet browser.
+
+### Install On iPhone
+
+1. Open the deployed app in Safari.
+2. Tap **Share**.
+3. Choose **Add to Home Screen**.
+4. Launch it from the home screen as a standalone app.
+
+### Install On Android
+
+1. Open the deployed app in Chrome.
+2. Tap the browser menu.
+3. Choose **Install app** or **Add to Home screen**.
+4. Launch it from the home screen as a standalone app.
+
+### Mobile App Files
+
+- `frontend/public/manifest.webmanifest` — install metadata
+- `frontend/public/sw.js` — service worker shell caching
+- `frontend/public/apple-touch-icon.png` — iPhone home-screen icon
+- `frontend/public/icon-192.png` — Android/PWA icon
+- `frontend/public/icon-512.png` — large install icon
+
 ## 📁 Project Structure
 
 ```
@@ -123,6 +169,12 @@ plc-diagnostics-bridge/
     ├── Dockerfile
     ├── nginx.conf              # Production proxy config
     ├── index.html
+    ├── public/
+    │   ├── manifest.webmanifest
+    │   ├── sw.js
+    │   ├── apple-touch-icon.png
+    │   ├── icon-192.png
+    │   └── icon-512.png
     └── src/                    # Vue 3 application
 ```
 
@@ -138,6 +190,14 @@ Environment variables (set in `docker-compose.yml`):
 | `CORS_ORIGINS`         | *                        | Allowed CORS origins           |
 | `CONNECTION_TIMEOUT_SEC` | 5                      | PLC connection timeout (sec)   |
 | `MAX_CONNECTIONS`      | 20                       | Max concurrent PLC connections |
+
+## 🧭 Frontend Notes
+
+- The live connection summary is rendered directly in the workspace strip, so the main operations view stays compact on smaller screens.
+- The connection panel scrolls internally on shorter displays to prevent the UI from overflowing the viewport.
+- The connection action area uses a single primary connect or disconnect button to keep the control rail compact on hosted screens.
+- The frontend registers `frontend/public/sw.js` automatically when the browser supports service workers.
+- For the best iPhone and Android experience, deploy the app over HTTPS.
 
 ## 🛡️ Supported PLC Protocols
 
