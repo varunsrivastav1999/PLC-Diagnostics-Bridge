@@ -22,11 +22,14 @@ class LibraryVars():
         return cls._instance
 
     def __init__(self):
+        if getattr(self, '_initialized', False):
+            return
         self.app_settings = {}
         self.robot_controllers = {}
         self.app_settings = self.load_settings('fxvrlib.toml')
         self.logger = Logger()
         self.logger.initialize(self.app_settings.get('app_settings', {}))
+        self._initialized = True
         
     def reload_settings(self):
         new_settings = self.load_settings('fxvrlib.toml')
@@ -39,10 +42,8 @@ class LibraryVars():
         return self.logger.get_logger()
 
     def make_output_path_filename(self, filename: str) -> str:
-        output_path = ''
-        for path_item in self.app_settings.get('output_path', ['out']):
-            output_path = os.path.join(path_item)
-
+        path_items = self.app_settings.get('output_path', ['out'])
+        output_path = os.path.join(*path_items) if path_items else 'out'
         return os.path.join(output_path, filename)
 
     def load_settings(self, file: str) -> dict:

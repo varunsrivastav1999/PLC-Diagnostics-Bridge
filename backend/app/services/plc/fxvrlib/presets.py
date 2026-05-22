@@ -174,7 +174,7 @@ def set_presets(args: dict[str, Any]) -> bool:
     for offset in range(start_offset, ending_offset + 1):
         presets_entry = args['presets'][offset - start_offset]
         for index, preset_name in enumerate(preset_names, start=1):
-            if not presets_entry.get(preset_name):
+            if preset_name not in presets_entry:
                 msg = f'Missing preset name: {preset_name!r} for supplied presets[{index}].'
                 library_vars.get_logger().error(msg)
                 raise RuntimeError(msg)

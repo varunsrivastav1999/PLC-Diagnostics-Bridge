@@ -383,7 +383,6 @@ const displayColumns = computed(() => {
       { key: 'shape_air1', label: 'Shape Air 1', unit: 'L/min', min: 0, max: 800 },
       { key: 'estat_KV', label: 'E-Stat', unit: 'kV', min: 0, max: 100 },
       { key: 'shape_air2', label: 'Shape Air 2', unit: 'L/min', min: 0, max: 800 },
-      { key: 'estat_uA', label: 'E-Stat Curr', unit: 'µA', min: 0, max: 250 }
     ];
   }
   // Default (GUN)

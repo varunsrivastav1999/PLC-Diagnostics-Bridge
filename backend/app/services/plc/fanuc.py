@@ -48,25 +48,50 @@ class FanucPLCService(BasePLCService):
                     # Persist to TOML file permanently
                     toml_path = os.path.join(os.path.dirname(__file__), 'fxvrlib', 'config', 'fxvrlib.toml')
                     if os.path.exists(toml_path):
-                        with open(toml_path, 'a') as f:
-                            f.write(f"\n[[robot_controllers]]\n")
-                            f.write(f'id = "{settings["id"]}"\n')
-                            f.write(f'name = "{settings["name"]}"\n')
-                            f.write(f'description = "{settings["description"]}"\n')
-                            f.write(f'ip_address = "{settings["ip_address"]}"\n')
-                            f.write(f'ftp_port = {settings["ftp_port"]}\n')
-                            f.write(f'ftp_username = "{settings["ftp_username"]}"\n')
-                            f.write(f'ftp_password = "{settings["ftp_password"]}"\n')
-                            f.write(f'version = "{settings["version"]}"\n')
+                        # Read existing TOML, add new controller, rewrite
+                        import tomllib
+                        with open(toml_path, 'rb') as f:
+                            existing = tomllib.load(f)
+                        controllers = existing.get('robot_controllers', [])
+                        # Remove any empty dicts from legacy TOML
+                        controllers = [c for c in controllers if c]
+                        controllers.append(settings)
+                        existing['robot_controllers'] = controllers
+                        # Rewrite as valid TOML
+                        with open(toml_path, 'w') as f:
+                            # Write app_settings section
+                            app_s = existing.get('app_settings', {})
+                            if app_s:
+                                f.write('[app_settings]\n')
+                                for k, v in app_s.items():
+                                    if isinstance(v, list):
+                                        f.write(f'{k} = {v}\n')
+                                    elif isinstance(v, str):
+                                        f.write(f'{k}="{v}"\n')
+                                    else:
+                                        f.write(f'{k}={v}\n')
+                                f.write('\n')
+                            # Write all robot controllers
+                            for ctrl in controllers:
+                                f.write('[[robot_controllers]]\n')
+                                for k, v in ctrl.items():
+                                    if isinstance(v, str):
+                                        f.write(f'{k} = "{v}"\n')
+                                    else:
+                                        f.write(f'{k} = {v}\n')
+                                f.write('\n')
                             
                 controller = self.library_vars.get_robot_controller_by_ip(req.ip)
                 
             # test FTP connection
             try:
                 ftp = controller.get_ftp()
-                ftp.connect({}) # we just need to test login
+                ftp.connect({})
+                # Verify FTP is actually responsive by listing root
+                ftp.ftp.nlst()
                 ftp.disconnect()
             except Exception as e:
+                self.is_connected = False
                 raise PLCConnectionError(f"Fanuc FTP connection failed: {e}")
                 
             self.is_connected = True

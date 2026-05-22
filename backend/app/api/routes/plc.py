@@ -52,7 +52,7 @@ def test_connection_post(req: PLCConnectRequest):
         connected = False
     return PLCResponse(
         success=connected,
-        message="Link active (closed)" if connected else "No link",
+        message="Link active" if connected else "No link",
         connected=connected,
         timestamp=_ts(),
     )
@@ -64,7 +64,13 @@ def check_port_busy(req: PLCConnectRequest):
     
     try:
         port_info = manager.check_port(req)
-        port = req.port if req.port is not None else 5000
+        # Use PLC-type-aware default ports
+        default_ports = {
+            'siemens': 102, 'mitsubishi': 5000, 'rockwell': 44818,
+            'abb': 502, 'fanuc': 21,
+        }
+        plc_type_val = req.plc_type.value if hasattr(req.plc_type, 'value') else str(req.plc_type)
+        port = req.port if req.port is not None else default_ports.get(plc_type_val, 5000)
         
         # For backward compatibility, keep port_busy field
         is_busy = port_info.get('busy', False)
@@ -106,7 +112,6 @@ def write_value(req: PLCWriteRequest):
 
     return _ok("Write OK", address=req.address, plc_type=req.plc_type.value, connected=True) if ok else _fail("Write returned False", connected=False)
 
-
 # ──────────── Info ────────────
 
 @router.get("/status", response_model=PLCResponse)
@@ -123,3 +128,29 @@ def get_status(plc_type: str, ip: str, port: int = None):
 @router.get("/supported-types", response_model=list[str])
 def get_supported_types():
     return manager.list_supported_types()
+
+
+# ──────────── Mitsubishi Port Discovery ────────────
+
+@router.get("/discover-ports")
+def discover_ports(ip: str, timeout: float = 1.0):
+    """
+    Scan Mitsubishi MC Protocol ports on the given IP.
+    Returns MC ports, TCP-only ports, reachability, and diagnosis.
+    """
+    from app.services.plc.mitsubishi import MitsubishiPLCService
+    try:
+        result = MitsubishiPLCService.discover_ports(ip, timeout=min(timeout, 3.0))
+        recommended = result.get('recommended_port')
+        mc_ports = result.get('mc_ports', [])
+        diagnosis = result.get('diagnosis', '')
+        return _ok(
+            f"Found {len(mc_ports)} MC Protocol port(s)" if mc_ports else "No MC Protocol ports found",
+            connected=False,
+            discovery=result,
+            recommended_port=recommended,
+            diagnosis=diagnosis,
+        )
+    except Exception as e:
+        logger.error(f"Port discovery failed for {ip}: {e}")
+        return _fail(f"Port discovery failed: {e}")

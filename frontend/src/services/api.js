@@ -46,4 +46,7 @@ export default {
     getSupportedTypes() {
         return api.get('/plc/supported-types');
     },
+    discoverPorts(ip, timeout = 1.0) {
+        return api.get('/plc/discover-ports', { params: { ip, timeout } });
+    },
 };

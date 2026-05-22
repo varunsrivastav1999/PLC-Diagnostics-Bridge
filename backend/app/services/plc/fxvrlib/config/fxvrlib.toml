@@ -10,6 +10,3 @@ log_level="DEBUG"
 log_max_bytes=1048576
 log_backup_count=5
 output_path = ["out"]
-
-[[robot_controllers]]
-

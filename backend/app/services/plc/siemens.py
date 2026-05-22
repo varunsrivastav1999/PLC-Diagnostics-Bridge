@@ -139,8 +139,10 @@ class SiemensPLCService(BasePLCService):
 
             elif req.data_type == DataType.STRING:
                 # S7 string format: [max_len][actual_len][chars...]
+                # Read the existing header to get the configured max length
+                header = self.client.db_read(db_number, start, 2)
+                max_len = header[0] if header[0] > 0 else 254
                 text = str(req.value)
-                max_len = 254
                 actual_len = min(len(text), max_len)
                 data = bytearray(2 + max_len)
                 data[0] = max_len

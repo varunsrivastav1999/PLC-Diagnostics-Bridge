@@ -24,7 +24,7 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    docs_url="/docs" if settings.DEBUG else None,
+    docs_url="/docs",
     redoc_url=None,
     lifespan=lifespan,
 )

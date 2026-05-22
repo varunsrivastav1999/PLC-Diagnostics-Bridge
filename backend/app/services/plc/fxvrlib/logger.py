@@ -19,8 +19,8 @@ class Logger():
         if self.logger.handlers:
             return
 
-        for path_item in app_settings.get('output_path', ['out']):
-            log_file = os.path.join(path_item)
+        path_items = app_settings.get('output_path', ['out'])
+        log_file = os.path.join(*path_items) if path_items else 'out'
 
         os.makedirs(log_file, exist_ok=True)
         log_file = os.path.join(log_file, f'{__package__}.log')

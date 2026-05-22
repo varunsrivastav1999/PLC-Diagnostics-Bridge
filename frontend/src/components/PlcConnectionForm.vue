@@ -76,6 +76,19 @@
               <p class="mt-1.5 text-[0.62rem] uppercase tracking-[0.14em] text-slate-500">
                 Default {{ getDefaultPort(store.connectionConfig.plc_type) }}
               </p>
+              <button
+                v-if="store.connectionConfig.plc_type === 'mitsubishi' && !store.isConnected"
+                type="button"
+                @click="handleDiscoverPorts"
+                :disabled="discoveringPorts || !store.connectionConfig.ip"
+                class="mt-2 flex items-center justify-center gap-1.5 w-full px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all border"
+                :class="discoveringPorts
+                  ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 cursor-wait'
+                  : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 active:scale-95'"
+              >
+                <i :class="discoveringPorts ? 'pi pi-spin pi-spinner' : 'pi pi-search'" style="font-size: 9px;"></i>
+                {{ discoveringPorts ? 'SCANNING...' : 'FIND MC PORT' }}
+              </button>
             </div>
           </div>
 
@@ -191,6 +204,7 @@ import Checkbox from 'primevue/checkbox'
 import ProgressSpinner from 'primevue/progressspinner'
 import Tag from 'primevue/tag'
 import PlcTypeIcon from './PlcTypeIcon.vue'
+import api from '../services/api'
 
 const store = usePlcStore()
 const toast = useToast()
@@ -199,6 +213,7 @@ const plcTypes = ref(['siemens', 'mitsubishi', 'rockwell', 'abb', 'fanuc'])
 const portCheckEnabled = ref(false)
 const continuousMonitoring = ref(false)
 const monitoringInterval = ref(null)
+const discoveringPorts = ref(false)
 const autoCheckTimeout = ref(null)
 
 const isValidIp = (ip) => {
@@ -251,10 +266,10 @@ const getDefaultPort = (type) => {
 }
 
 const getPortStatusText = () => {
-  if (store.portStatus === 'open') return 'PORT FREE'
-  if (store.portStatus === 'closed') return 'PORT BUSY'
-  if (store.portBusy === true) return 'PORT BUSY'
-  if (store.portBusy === false) return 'PORT FREE'
+  if (store.portStatus === 'open') return 'REACHABLE'
+  if (store.portStatus === 'closed') return 'UNREACHABLE'
+  if (store.portBusy === true) return 'REACHABLE'
+  if (store.portBusy === false) return 'UNREACHABLE'
   return store.portStatus.toUpperCase()
 }
 
@@ -263,8 +278,8 @@ const getPortStatusSeverity = () => {
   if (store.portStatus === 'closed') return 'danger'
   if (store.portStatus === 'timeout') return 'warn'
   if (store.portStatus === 'error' || store.portStatus === 'dns_error') return 'danger'
-  if (store.portBusy === true) return 'danger'
-  if (store.portBusy === false) return 'success'
+  if (store.portBusy === true) return 'success'
+  if (store.portBusy === false) return 'danger'
   return 'info'
 }
 
@@ -273,8 +288,8 @@ const getPortStatusClass = () => {
   if (store.portStatus === 'closed') return 'port-busy-tag'
   if (store.portStatus === 'timeout') return 'port-timeout-tag'
   if (store.portStatus === 'error' || store.portStatus === 'dns_error') return 'port-error-tag'
-  if (store.portBusy === true) return 'port-busy-tag'
-  if (store.portBusy === false) return 'port-free-tag'
+  if (store.portBusy === true) return 'port-free-tag'
+  if (store.portBusy === false) return 'port-busy-tag'
   return 'port-unknown-tag'
 }
 
@@ -314,10 +329,51 @@ const onPlcTypeChange = () => {
   portCheckEnabled.value = false
 
   if (type === 'siemens') store.connectionConfig.port = 102
-  else if (type === 'mitsubishi') store.connectionConfig.port = 5000
+  else if (type === 'mitsubishi') {
+    store.connectionConfig.port = 5000
+    // Auto-discover MC port if IP is already entered
+    if (isValidIp(store.connectionConfig.ip)) {
+      autoDiscoverMitsubishiPort()
+    }
+  }
   else if (type === 'abb') store.connectionConfig.port = 502
   else if (type === 'rockwell') store.connectionConfig.port = 44818
   else if (type === 'fanuc') store.connectionConfig.port = 21
+}
+
+// ── Auto-discover Mitsubishi MC port when IP changes ──
+let discoverDebounceTimer = null
+watch(() => store.connectionConfig.ip, (newIp) => {
+  if (store.connectionConfig.plc_type !== 'mitsubishi') return
+  if (store.isConnected) return
+  if (discoverDebounceTimer) clearTimeout(discoverDebounceTimer)
+  if (!isValidIp(newIp)) return
+  discoverDebounceTimer = setTimeout(() => {
+    autoDiscoverMitsubishiPort()
+  }, 1200)
+})
+
+const autoDiscoverMitsubishiPort = async () => {
+  if (discoveringPorts.value || !store.connectionConfig.ip) return
+  discoveringPorts.value = true
+  try {
+    const res = await api.discoverPorts(store.connectionConfig.ip)
+    const data = res.data
+    if (data.success && data.recommended_port) {
+      store.connectionConfig.port = data.recommended_port
+      const mcPorts = data.discovery?.mc_ports || []
+      toast.add({
+        severity: 'success',
+        summary: `MC Port Auto-Detected: ${data.recommended_port}`,
+        detail: `Found ${mcPorts.length} MC Protocol port(s): ${mcPorts.join(', ')}`,
+        life: 4000
+      })
+    }
+  } catch {
+    // Silent fail for auto-discover — user can still use manual FIND MC PORT
+  } finally {
+    discoveringPorts.value = false
+  }
 }
 
 const handleConnect = async () => {
@@ -340,6 +396,47 @@ const handleDisconnect = async () => {
   toast.add({ severity: 'info', summary: 'Disconnected', detail: result.message, life: 3000 })
 }
 
+const handleDiscoverPorts = async () => {
+  if (!store.connectionConfig.ip || discoveringPorts.value) return
+  discoveringPorts.value = true
+  toast.add({ severity: 'info', summary: 'Scanning', detail: `Scanning ${store.connectionConfig.ip} — checking 55+ MC Protocol ports...`, life: 4000 })
+  try {
+    const res = await api.discoverPorts(store.connectionConfig.ip)
+    const data = res.data
+    if (data.success && data.recommended_port) {
+      store.connectionConfig.port = data.recommended_port
+      const discovery = data.discovery || {}
+      const mcPorts = discovery.mc_ports || []
+      toast.add({
+        severity: 'success',
+        summary: `✓ MC Port ${data.recommended_port} Auto-Detected`,
+        detail: `MC Protocol active on port${mcPorts.length > 1 ? 's' : ''}: ${mcPorts.join(', ')} — scanned ${discovery.ports_scanned} ports in ${discovery.scan_time_ms}ms`,
+        life: 6000
+      })
+    } else {
+      // Show detailed diagnosis from backend
+      const diagnosis = data.diagnosis || data.discovery?.diagnosis || 'No MC Protocol ports detected.'
+      const discovery = data.discovery || {}
+      const tcpPorts = discovery.tcp_ports || []
+      const summary = discovery.reachable === false
+        ? 'PLC Not Reachable'
+        : tcpPorts.length > 0
+          ? `TCP Open (${tcpPorts.join(',')}) — No MC Protocol`
+          : 'No MC Port Found'
+      toast.add({
+        severity: 'warn',
+        summary,
+        detail: diagnosis,
+        life: 10000
+      })
+    }
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Scan Failed', detail: e.message, life: 5000 })
+  } finally {
+    discoveringPorts.value = false
+  }
+}
+
 const handlePortCheck = async () => {
   if (continuousMonitoring.value) {
     startContinuousMonitoring()
@@ -359,11 +456,11 @@ const performPortCheck = async () => {
     switch (status) {
       case 'open':
         severity = 'success'
-        summary = 'Port Free'
+        summary = 'Port Reachable'
         break
       case 'closed':
         severity = 'error'
-        summary = 'Port Busy'
+        summary = 'Port Unreachable'
         break
       case 'timeout':
         severity = 'warn'

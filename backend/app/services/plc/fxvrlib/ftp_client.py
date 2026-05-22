@@ -29,8 +29,14 @@ class FtpClient():
 
     def disconnect(self):
         if self.ftp:
-            self.ftp.quit()
-            self.ftp.close()
+            try:
+                self.ftp.quit()
+            except Exception:
+                pass
+            try:
+                self.ftp.close()
+            except Exception:
+                pass
             self.ftp = None
 
     def get_file_content(self, remote_file: str) -> tuple[str, int]:

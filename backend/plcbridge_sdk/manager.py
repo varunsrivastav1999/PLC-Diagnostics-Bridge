@@ -73,8 +73,10 @@ class PLCManager:
         service = self.get_service(req, auto_connect=True)
         try:
             return service.read(req)
-        except Exception:
+        except PLCConnectionError:
             self._cache.remove_connection(plc_id)
+            raise
+        except Exception:
             raise
 
     def write(self, req: WriteRequestLike) -> bool:
@@ -82,13 +84,20 @@ class PLCManager:
         service = self.get_service(req, auto_connect=True)
         try:
             return service.write(req)
-        except Exception:
+        except PLCConnectionError:
             self._cache.remove_connection(plc_id)
+            raise
+        except Exception:
             raise
 
     def check_port(self, req: ConnectRequestLike) -> dict:
         connect_req = self._to_connection_params(req)
-        port = connect_req.port if connect_req.port is not None else 5000
+        default_ports = {
+            'siemens': 102, 'mitsubishi': 5000, 'rockwell': 44818,
+            'abb': 502, 'fanuc': 21,
+        }
+        plc_type_val = getattr(connect_req.plc_type, 'value', str(connect_req.plc_type))
+        port = connect_req.port if connect_req.port is not None else default_ports.get(plc_type_val, 5000)
         service = get_plc_service(connect_req.plc_type)
         return service.check_port_busy(connect_req.ip, port)
 

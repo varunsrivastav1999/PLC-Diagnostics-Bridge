@@ -11,10 +11,11 @@ logger = logging.getLogger(__name__)
 class RockwellPLCService(BasePLCService):
     def __init__(self):
         super().__init__()
-        self.client = PLC()
+        self.client = None
 
     def connect(self, req: PLCConnectRequest) -> bool:
         try:
+            self.client = PLC()
             self.client.IPAddress = req.ip
             if req.port is not None:
                 self.client.Port = req.port
@@ -37,7 +38,8 @@ class RockwellPLCService(BasePLCService):
 
     def disconnect(self) -> bool:
         try:
-            self.client.Close()
+            if self.client:
+                self.client.Close()
         except Exception:
             pass
         self.is_connected = False
