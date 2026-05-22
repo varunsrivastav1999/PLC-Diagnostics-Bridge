@@ -68,7 +68,8 @@
                 inputmode="numeric"
                 pattern="[0-9]*"
                 maxlength="5"
-                class="compact-field mt-2.5 w-full font-mono text-sm"
+                class="compact-field mt-2.5 w-full font-mono text-sm transition-all duration-500"
+                :class="{'!border-emerald-500 !ring-1 !ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]': highlightPort}"
                 spellcheck="false"
                 autocomplete="off"
                 :disabled="store.isConnected"
@@ -410,6 +411,8 @@ const handleDisconnect = async () => {
   toast.add({ severity: 'info', summary: 'Disconnected', detail: result.message, life: 3000 })
 }
 
+const highlightPort = ref(false)
+
 const handleDiscoverPorts = async () => {
   if (!store.connectionConfig.ip || discoveringPorts.value) return
   discoveringPorts.value = true
@@ -419,6 +422,11 @@ const handleDiscoverPorts = async () => {
     const data = res.data
     if (data.success && data.recommended_port) {
       store.connectionConfig.port = data.recommended_port
+      
+      // Visual feedback: briefly highlight the port input
+      highlightPort.value = true
+      setTimeout(() => { highlightPort.value = false }, 2000)
+
       const discovery = data.discovery || {}
       const mcPorts = discovery.mc_ports || []
       toast.add({
@@ -466,6 +474,9 @@ const handleSubnetScan = async () => {
       const first = plcs[0]
       store.connectionConfig.ip = first.ip
       store.connectionConfig.port = first.mc_ports[0]
+      
+      highlightPort.value = true
+      setTimeout(() => { highlightPort.value = false }, 2000)
       const plcList = plcs.map(p => `${p.ip}:${p.mc_ports.join(',')}`).join(' | ')
       toast.add({
         severity: 'success',
