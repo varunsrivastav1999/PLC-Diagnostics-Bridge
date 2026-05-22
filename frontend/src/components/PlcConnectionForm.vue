@@ -90,19 +90,7 @@
                 <i :class="discoveringPorts ? 'pi pi-spin pi-spinner' : 'pi pi-search'" style="font-size: 9px;"></i>
                 {{ discoveringPorts ? 'SCANNING...' : 'FIND MC PORT' }}
               </button>
-              <button
-                v-if="store.connectionConfig.plc_type === 'mitsubishi' && !store.isConnected"
-                type="button"
-                @click="handleSubnetScan"
-                :disabled="scanningSubnet || discoveringPorts || !store.connectionConfig.ip"
-                class="mt-1.5 flex items-center justify-center gap-1.5 w-full px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all border"
-                :class="scanningSubnet
-                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 cursor-wait'
-                  : 'bg-violet-500/10 border-violet-500/30 text-violet-400 hover:bg-violet-500/20 active:scale-95'"
-              >
-                <i :class="scanningSubnet ? 'pi pi-spin pi-spinner' : 'pi pi-globe'" style="font-size: 9px;"></i>
-                {{ scanningSubnet ? 'SCANNING SUBNET...' : 'SCAN SUBNET' }}
-              </button>
+
             </div>
           </div>
 
