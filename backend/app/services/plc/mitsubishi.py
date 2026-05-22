@@ -179,15 +179,25 @@ class MitsubishiPLCService(BasePLCService):
             mc_ok = False
             try:
                 client.connect(ip, port)
+                # Try reading M0
                 try:
                     client.batchread_bitunits(headdevice="M0", readsize=1)
                     mc_ok = True
-                except Exception:
-                    try:
-                        client.batchread_wordunits(headdevice="D0", readsize=1)
+                except Exception as e:
+                    err_str = str(e).lower()
+                    if "timeout" not in err_str and "timed out" not in err_str and "connection" not in err_str:
+                        # If the PLC returned a specific error code (e.g. device not found),
+                        # it means the MC Protocol server is active!
                         mc_ok = True
-                    except Exception:
-                        pass
+                    else:
+                        # Try D0 as a fallback
+                        try:
+                            client.batchread_wordunits(headdevice="D0", readsize=1)
+                            mc_ok = True
+                        except Exception as e2:
+                            err_str2 = str(e2).lower()
+                            if "timeout" not in err_str2 and "timed out" not in err_str2 and "connection" not in err_str2:
+                                mc_ok = True
             except Exception:
                 pass
             finally:
@@ -320,12 +330,18 @@ class MitsubishiPLCService(BasePLCService):
                     try:
                         client.batchread_bitunits(headdevice="M0", readsize=1)
                         mc_ok = True
-                    except Exception:
-                        try:
-                            client.batchread_wordunits(headdevice="D0", readsize=1)
+                    except Exception as e:
+                        err_str = str(e).lower()
+                        if "timeout" not in err_str and "timed out" not in err_str and "connection" not in err_str:
                             mc_ok = True
-                        except Exception:
-                            pass
+                        else:
+                            try:
+                                client.batchread_wordunits(headdevice="D0", readsize=1)
+                                mc_ok = True
+                            except Exception as e2:
+                                err_str2 = str(e2).lower()
+                                if "timeout" not in err_str2 and "timed out" not in err_str2 and "connection" not in err_str2:
+                                    mc_ok = True
                 except Exception:
                     pass
                 finally:
