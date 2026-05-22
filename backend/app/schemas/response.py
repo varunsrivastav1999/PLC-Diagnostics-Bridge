@@ -1,8 +1,10 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Any, Optional
 from datetime import datetime
 
 class PLCResponse(BaseModel):
+    model_config = ConfigDict(extra='allow')
+
     success: bool
     message: str
     value: Optional[Any] = None
