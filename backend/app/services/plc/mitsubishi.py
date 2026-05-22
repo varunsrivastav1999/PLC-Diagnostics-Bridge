@@ -175,29 +175,25 @@ class MitsubishiPLCService(BasePLCService):
                 continue
 
             # Phase 2: MC Protocol handshake on open ports
+            # Note: We append ALL open ports to mc_ports because the strict Type3E binary handshake
+            # might fail (Connection Reset) if the port is configured for Type4E or ASCII,
+            # yet it is still the correct MC Protocol port.
+            mc_ports.append(port)
+            
             client = pymcprotocol.Type3E()
-            mc_ok = False
             try:
                 client.connect(ip, port)
-                # Try reading M0
                 try:
                     client.batchread_bitunits(headdevice="M0", readsize=1)
-                    mc_ok = True
                 except Exception as e:
                     err_str = str(e).lower()
                     if "timeout" not in err_str and "timed out" not in err_str and "connection" not in err_str:
-                        # If the PLC returned a specific error code (e.g. device not found),
-                        # it means the MC Protocol server is active!
-                        mc_ok = True
+                        pass
                     else:
-                        # Try D0 as a fallback
                         try:
                             client.batchread_wordunits(headdevice="D0", readsize=1)
-                            mc_ok = True
-                        except Exception as e2:
-                            err_str2 = str(e2).lower()
-                            if "timeout" not in err_str2 and "timed out" not in err_str2 and "connection" not in err_str2:
-                                mc_ok = True
+                        except Exception:
+                            pass
             except Exception:
                 pass
             finally:
@@ -206,16 +202,11 @@ class MitsubishiPLCService(BasePLCService):
                 except Exception:
                     pass
 
-            if mc_ok:
-                mc_ports.append(port)
-            else:
-                tcp_ports.append(port)
-
         scan_time = round((time.monotonic() - start) * 1000, 1)
 
         # ── Build diagnosis ──
         if mc_ports:
-            diagnosis = f"MC Protocol found on port(s): {mc_ports}. Ready to connect."
+            diagnosis = f"Found open PLC port(s): {mc_ports}. Ready to connect."
         elif tcp_ports:
             diagnosis = (
                 f"IP {ip} is reachable and has TCP port(s) open: {tcp_ports}, "
@@ -322,26 +313,25 @@ class MitsubishiPLCService(BasePLCService):
                 if result != 0:
                     continue
 
-                # TCP is open — try MC Protocol
+                # Port is open. Add as a candidate PLC port immediately,
+                # since strict MC Protocol handshakes often fail on non-binary ports.
+                mc_ports_found.append(port)
+
+                # Optional: still test handshake but don't strictly require success
                 client = pymcprotocol.Type3E()
-                mc_ok = False
                 try:
                     client.connect(ip, port)
                     try:
                         client.batchread_bitunits(headdevice="M0", readsize=1)
-                        mc_ok = True
                     except Exception as e:
                         err_str = str(e).lower()
                         if "timeout" not in err_str and "timed out" not in err_str and "connection" not in err_str:
-                            mc_ok = True
+                            pass
                         else:
                             try:
                                 client.batchread_wordunits(headdevice="D0", readsize=1)
-                                mc_ok = True
-                            except Exception as e2:
-                                err_str2 = str(e2).lower()
-                                if "timeout" not in err_str2 and "timed out" not in err_str2 and "connection" not in err_str2:
-                                    mc_ok = True
+                            except Exception:
+                                pass
                 except Exception:
                     pass
                 finally:
@@ -349,11 +339,6 @@ class MitsubishiPLCService(BasePLCService):
                         client.close()
                     except Exception:
                         pass
-
-                if mc_ok:
-                    mc_ports_found.append(port)
-                else:
-                    tcp_ports_found.append(port)
 
             with lock:
                 if mc_ports_found or tcp_ports_found:
