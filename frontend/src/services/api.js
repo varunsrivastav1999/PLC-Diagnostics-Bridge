@@ -49,4 +49,7 @@ export default {
     discoverPorts(ip, timeout = 1.0) {
         return api.get('/plc/discover-ports', { params: { ip, timeout } });
     },
+    discoverSubnet(ip, timeout = 0.5) {
+        return api.get('/plc/discover-subnet', { params: { ip, timeout }, timeout: 60000 });
+    },
 };

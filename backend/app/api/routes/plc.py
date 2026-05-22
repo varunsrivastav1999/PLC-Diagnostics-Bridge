@@ -154,3 +154,30 @@ def discover_ports(ip: str, timeout: float = 1.0):
     except Exception as e:
         logger.error(f"Port discovery failed for {ip}: {e}")
         return _fail(f"Port discovery failed: {e}")
+
+
+@router.get("/discover-subnet")
+def discover_subnet(ip: str, timeout: float = 0.5):
+    """
+    Scan entire /24 subnet to find Mitsubishi PLCs with MC Protocol.
+    Checks ports 1025-1040, 5000-5002 and other common MC ports on all 254 IPs.
+    Uses 32 concurrent threads for speed (~15-30 seconds).
+    """
+    from app.services.plc.mitsubishi import MitsubishiPLCService
+    try:
+        result = MitsubishiPLCService.discover_subnet(ip, timeout=min(timeout, 2.0))
+        plcs = result.get('plcs_found', [])
+        reachable = result.get('reachable_ips', [])
+        subnet = result.get('subnet', '')
+        return _ok(
+            f"Found {len(plcs)} Mitsubishi PLC(s) on {subnet}" if plcs else f"No Mitsubishi PLCs found on {subnet}",
+            connected=False,
+            subnet=subnet,
+            plcs_found=plcs,
+            reachable_ips=reachable,
+            total_scanned=result.get('total_scanned', 0),
+            scan_time_ms=result.get('scan_time_ms', 0),
+        )
+    except Exception as e:
+        logger.error(f"Subnet discovery failed: {e}")
+        return _fail(f"Subnet discovery failed: {e}")

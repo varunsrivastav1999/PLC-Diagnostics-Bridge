@@ -80,7 +80,7 @@
                 v-if="store.connectionConfig.plc_type === 'mitsubishi' && !store.isConnected"
                 type="button"
                 @click="handleDiscoverPorts"
-                :disabled="discoveringPorts || !store.connectionConfig.ip"
+                :disabled="discoveringPorts || scanningSubnet || !store.connectionConfig.ip"
                 class="mt-2 flex items-center justify-center gap-1.5 w-full px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all border"
                 :class="discoveringPorts
                   ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 cursor-wait'
@@ -88,6 +88,19 @@
               >
                 <i :class="discoveringPorts ? 'pi pi-spin pi-spinner' : 'pi pi-search'" style="font-size: 9px;"></i>
                 {{ discoveringPorts ? 'SCANNING...' : 'FIND MC PORT' }}
+              </button>
+              <button
+                v-if="store.connectionConfig.plc_type === 'mitsubishi' && !store.isConnected"
+                type="button"
+                @click="handleSubnetScan"
+                :disabled="scanningSubnet || discoveringPorts || !store.connectionConfig.ip"
+                class="mt-1.5 flex items-center justify-center gap-1.5 w-full px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all border"
+                :class="scanningSubnet
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 cursor-wait'
+                  : 'bg-violet-500/10 border-violet-500/30 text-violet-400 hover:bg-violet-500/20 active:scale-95'"
+              >
+                <i :class="scanningSubnet ? 'pi pi-spin pi-spinner' : 'pi pi-globe'" style="font-size: 9px;"></i>
+                {{ scanningSubnet ? 'SCANNING SUBNET...' : 'SCAN SUBNET' }}
               </button>
             </div>
           </div>
@@ -214,6 +227,7 @@ const portCheckEnabled = ref(false)
 const continuousMonitoring = ref(false)
 const monitoringInterval = ref(null)
 const discoveringPorts = ref(false)
+const scanningSubnet = ref(false)
 const autoCheckTimeout = ref(null)
 
 const isValidIp = (ip) => {
@@ -434,6 +448,46 @@ const handleDiscoverPorts = async () => {
     toast.add({ severity: 'error', summary: 'Scan Failed', detail: e.message, life: 5000 })
   } finally {
     discoveringPorts.value = false
+  }
+}
+
+const handleSubnetScan = async () => {
+  if (!store.connectionConfig.ip || scanningSubnet.value) return
+  scanningSubnet.value = true
+  const ip = store.connectionConfig.ip
+  const subnet = ip.split('.').slice(0, 3).join('.') + '.0/24'
+  toast.add({ severity: 'info', summary: `Scanning ${subnet}`, detail: 'Checking 254 IPs × 22 ports with 32 threads — this takes ~15-30 seconds...', life: 8000 })
+  try {
+    const res = await api.discoverSubnet(ip)
+    const data = res.data
+    const plcs = data.plcs_found || []
+    if (plcs.length > 0) {
+      // Auto-fill with the first found PLC
+      const first = plcs[0]
+      store.connectionConfig.ip = first.ip
+      store.connectionConfig.port = first.mc_ports[0]
+      const plcList = plcs.map(p => `${p.ip}:${p.mc_ports.join(',')}`).join(' | ')
+      toast.add({
+        severity: 'success',
+        summary: `✓ Found ${plcs.length} Mitsubishi PLC(s)`,
+        detail: `${plcList} — auto-filled ${first.ip}:${first.mc_ports[0]} (scan: ${data.scan_time_ms}ms)`,
+        life: 10000
+      })
+    } else {
+      const reachable = data.reachable_ips || []
+      toast.add({
+        severity: 'warn',
+        summary: `No Mitsubishi PLCs on ${subnet}`,
+        detail: reachable.length > 0
+          ? `${reachable.length} device(s) found with open TCP ports but none running MC Protocol: ${reachable.slice(0, 8).join(', ')}${reachable.length > 8 ? '...' : ''}`
+          : `No devices with open MC Protocol ports found on the subnet. Check PLC network configuration.`,
+        life: 10000
+      })
+    }
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Subnet Scan Failed', detail: e.message, life: 5000 })
+  } finally {
+    scanningSubnet.value = false
   }
 }
 

@@ -244,12 +244,135 @@ class MitsubishiPLCService(BasePLCService):
                        5011, 5012, 5013, 5014, 5015, 5016, 5017, 5018, 5019, 5020,
                        5100, 5101, 5102, 5103, 5104, 5105,
                        4999, 4998, 4997,
+                       1025, 1026, 1027, 1028, 1029, 1030, 1031, 1032,
+                       1033, 1034, 1035, 1036, 1037, 1038, 1039, 1040,
+                       1000, 1001, 1002,
                        2000, 2001, 2002, 2003, 2004, 2005,
                        3000, 3001, 3002, 3003, 3004, 3005,
                        4000, 4001, 4002,
-                       1000, 1025, 1026, 1027, 1028,
                        6000, 6001, 6002,
                        8000, 8001]
+
+    # Quick ports for subnet scan (fast check per IP)
+    QUICK_MC_PORTS = [5000, 5001, 5002, 1025, 1026, 1027, 1028, 1029, 1030,
+                      1031, 1032, 1033, 1034, 1035, 1036, 1037, 1038, 1039, 1040,
+                      2000, 3000, 4999, 5100]
+
+    @classmethod
+    def discover_subnet(cls, base_ip: str, timeout: float = 0.5) -> dict:
+        """
+        Scan an entire /24 subnet to find Mitsubishi PLCs with MC Protocol.
+        Uses concurrent threads for speed (scans 254 IPs in ~15-30 seconds).
+
+        Args:
+            base_ip: Any IP in the subnet (e.g. "192.169.4.152")
+            timeout: TCP timeout per port probe
+
+        Returns:
+            {
+                'subnet': '192.169.4.0/24',
+                'plcs_found': [
+                    {'ip': '192.169.4.10', 'mc_ports': [5000], 'tcp_ports': [80]},
+                    ...
+                ],
+                'reachable_ips': ['192.169.4.1', '192.169.4.10', ...],
+                'scan_time_ms': 12400.5,
+            }
+        """
+        import socket
+        import time
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        # Extract subnet base
+        parts = base_ip.strip().split('.')
+        if len(parts) != 4:
+            return {'error': f'Invalid IP: {base_ip}', 'plcs_found': [], 'reachable_ips': []}
+        subnet_base = '.'.join(parts[:3])
+
+        start = time.monotonic()
+        plcs_found = []
+        reachable_ips = []
+        lock = threading.Lock()
+
+        def probe_ip(ip: str):
+            """Probe a single IP for MC Protocol ports."""
+            mc_ports_found = []
+            tcp_ports_found = []
+
+            for port in cls.QUICK_MC_PORTS:
+                # Fast TCP probe
+                try:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(timeout)
+                    result = sock.connect_ex((ip, port))
+                    sock.close()
+                except Exception:
+                    continue
+
+                if result != 0:
+                    continue
+
+                # TCP is open — try MC Protocol
+                client = pymcprotocol.Type3E()
+                mc_ok = False
+                try:
+                    client.connect(ip, port)
+                    try:
+                        client.batchread_bitunits(headdevice="M0", readsize=1)
+                        mc_ok = True
+                    except Exception:
+                        try:
+                            client.batchread_wordunits(headdevice="D0", readsize=1)
+                            mc_ok = True
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                finally:
+                    try:
+                        client.close()
+                    except Exception:
+                        pass
+
+                if mc_ok:
+                    mc_ports_found.append(port)
+                else:
+                    tcp_ports_found.append(port)
+
+            with lock:
+                if mc_ports_found or tcp_ports_found:
+                    reachable_ips.append(ip)
+                if mc_ports_found:
+                    plcs_found.append({
+                        'ip': ip,
+                        'mc_ports': mc_ports_found,
+                        'tcp_ports': tcp_ports_found,
+                    })
+
+        # Scan all 254 IPs concurrently (skip .0 and .255)
+        ips_to_scan = [f"{subnet_base}.{i}" for i in range(1, 255)]
+
+        with ThreadPoolExecutor(max_workers=32) as executor:
+            futures = {executor.submit(probe_ip, ip): ip for ip in ips_to_scan}
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception:
+                    pass
+
+        scan_time = round((time.monotonic() - start) * 1000, 1)
+
+        # Sort by IP
+        plcs_found.sort(key=lambda x: [int(p) for p in x['ip'].split('.')])
+        reachable_ips.sort(key=lambda x: [int(p) for p in x.split('.')])
+
+        return {
+            'subnet': f'{subnet_base}.0/24',
+            'plcs_found': plcs_found,
+            'reachable_ips': reachable_ips,
+            'total_scanned': len(ips_to_scan),
+            'scan_time_ms': scan_time,
+        }
 
     def _try_tcp_connect(self, ip: str, port: int, timeout: float = 1.0) -> bool:
         """Fast TCP handshake probe — checks if anything is listening on ip:port."""
