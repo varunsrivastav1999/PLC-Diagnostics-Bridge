@@ -30,13 +30,23 @@ app = FastAPI(
 )
 
 # CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS.split(","),
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+origins_str = settings.CORS_ORIGINS.strip()
+if origins_str == "" or origins_str == "*":
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=".*",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins_str.split(","),
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # Global exception handlers
 @app.exception_handler(PLCConnectionError)

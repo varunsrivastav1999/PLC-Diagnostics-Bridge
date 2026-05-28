@@ -15,7 +15,7 @@ class FanucPLCService(BasePLCService):
     preset_type must be 'BELL' or 'GUN'.
     preset_name examples for BELL: 'fluid_rate', 'bell_speed', 'shape_air1', 'estat_KV', 'shape_air2'
     """
-    SUPPORTED_PRESET_TYPES = {"BELL", "GUN"}
+    SUPPORTED_PRESET_TYPES = {"BELL", "GUN", "DISK", "APPL", "SEALER"}
 
     def __init__(self):
         super().__init__()
@@ -96,12 +96,14 @@ class FanucPLCService(BasePLCService):
                 
             self.is_connected = True
             self.ip = req.ip
+            self._start_worker(f"fanuc-{req.ip}")
             return True
         except Exception as e:
             self.is_connected = False
             raise PLCConnectionError(f"Fanuc connection failed: {e}")
 
     def disconnect(self) -> bool:
+        self._stop_worker()
         self.is_connected = False
         return True
 
@@ -134,7 +136,7 @@ class FanucPLCService(BasePLCService):
         preset_name = parts[4] if len(parts) > 4 else None
         return job_no, color_no, preset_type, preset_no, preset_name
 
-    def read(self, req: PLCReadRequest) -> Any:
+    def _do_read(self, req: PLCReadRequest) -> Any:
         if not self.is_connected:
             raise PLCReadError("Fanuc not connected")
         try:
@@ -203,7 +205,7 @@ class FanucPLCService(BasePLCService):
         except Exception as e:
             raise PLCReadError(f"Fanuc read failed: {e}")
 
-    def write(self, req: PLCWriteRequest) -> bool:
+    def _do_write(self, req: PLCWriteRequest) -> bool:
         if not self.is_connected:
             raise PLCWriteError("Fanuc not connected")
         try:

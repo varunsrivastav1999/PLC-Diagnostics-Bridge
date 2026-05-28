@@ -8,27 +8,13 @@ from enum import Enum
 
 import pymcprotocol
 from app.services.plc.base import BasePLCService
+import app.services.plc.base as base
 from app.schemas.plc import PLCConnectRequest, PLCReadRequest, PLCWriteRequest, DataType
 from app.core.exceptions import PLCConnectionError, PLCReadError, PLCWriteError
 
 logger = logging.getLogger(__name__)
 
 
-class _OpType(Enum):
-    READ = "read"
-    WRITE = "write"
-
-
-class _RPCRequest:
-    """A single queued RPC operation with its result future."""
-    __slots__ = ('op', 'req', 'result', 'error', 'done')
-
-    def __init__(self, op: _OpType, req: Any):
-        self.op = op
-        self.req = req
-        self.result: Any = None
-        self.error: Exception | None = None
-        self.done = threading.Event()
 
 
 class MitsubishiPLCService(BasePLCService):
@@ -51,80 +37,6 @@ class MitsubishiPLCService(BasePLCService):
         self._lock = threading.Lock()  # protects connect/disconnect vs. worker lifecycle
         self._ip: str = ""
         self._port: int = 5000
-
-    # ───────────────────── Worker Thread ─────────────────────
-
-    def _start_worker(self):
-        """Start the background worker that drains the operation queue."""
-        if self._worker is not None and self._worker.is_alive():
-            return
-        self._worker = threading.Thread(
-            target=self._worker_loop,
-            name=f"mitsubishi-rpc-{self._ip}:{self._port}",
-            daemon=True,
-        )
-        self._worker.start()
-        logger.info(f"Mitsubishi RPC worker started for {self._ip}:{self._port}")
-
-    def _stop_worker(self):
-        """Send a poison pill to gracefully stop the worker."""
-        if self._worker is None or not self._worker.is_alive():
-            return
-        self._op_queue.put(None)  # poison pill
-        self._worker.join(timeout=3.0)
-        self._worker = None
-        # Drain any pending requests so callers don't hang
-        while not self._op_queue.empty():
-            try:
-                rpc = self._op_queue.get_nowait()
-                if rpc is not None:
-                    rpc.error = PLCConnectionError("Mitsubishi connection closed while request was pending")
-                    rpc.done.set()
-            except queue.Empty:
-                break
-
-    def _worker_loop(self):
-        """Continuously dequeue and execute PLC operations one at a time."""
-        while True:
-            rpc = self._op_queue.get()
-            if rpc is None:
-                # Poison pill → exit
-                logger.debug("Mitsubishi RPC worker received stop signal")
-                break
-            try:
-                if rpc.op == _OpType.READ:
-                    rpc.result = self._do_read(rpc.req)
-                elif rpc.op == _OpType.WRITE:
-                    rpc.result = self._do_write(rpc.req)
-            except Exception as e:
-                rpc.error = e
-            finally:
-                rpc.done.set()
-
-    def _enqueue(self, op: _OpType, req: Any, timeout: float = 10.0) -> Any:
-        """
-        Submit an operation to the RPC queue and block until it completes.
-        This is the ONLY path through which read/write hits the socket.
-        """
-        if not self.is_connected:
-            raise PLCConnectionError("Mitsubishi PLC not connected")
-        if self._worker is None or not self._worker.is_alive():
-            self.is_connected = False
-            raise PLCConnectionError("Mitsubishi RPC worker is not running — reconnect required")
-
-        rpc = _RPCRequest(op, req)
-        try:
-            self._op_queue.put(rpc, timeout=2.0)
-        except queue.Full:
-            raise PLCReadError("Mitsubishi operation queue full — PLC may be unresponsive") if op == _OpType.READ else PLCWriteError("Mitsubishi operation queue full — PLC may be unresponsive")
-
-        # Wait for the worker to execute our request
-        if not rpc.done.wait(timeout=timeout):
-            raise PLCReadError("Mitsubishi operation timed out") if op == _OpType.READ else PLCWriteError("Mitsubishi operation timed out")
-
-        if rpc.error is not None:
-            raise rpc.error
-        return rpc.result
 
     # ───────────────────── Port Discovery ─────────────────────
 
@@ -437,7 +349,7 @@ class MitsubishiPLCService(BasePLCService):
                 self._port = user_port
                 self.is_connected = True
                 self._op_queue = queue.Queue(maxsize=256)
-                self._start_worker()
+                self._start_worker(f"mitsubishi-{self._ip}:{self._port}")
                 logger.info(f"Mitsubishi connected: {req.ip}:{user_port} (RPC queue active)")
                 return True
 
@@ -453,7 +365,7 @@ class MitsubishiPLCService(BasePLCService):
                         self._port = port
                         self.is_connected = True
                         self._op_queue = queue.Queue(maxsize=256)
-                        self._start_worker()
+                        self._start_worker(f"mitsubishi-{self._ip}:{self._port}")
                         logger.info(
                             f"Mitsubishi auto-discovered on port {port} "
                             f"(user specified {user_port}). Connected: {req.ip}:{port}"
@@ -489,31 +401,48 @@ class MitsubishiPLCService(BasePLCService):
             return False
         try:
             # Use the RPC queue so this doesn't race with ongoing I/O
-            self._enqueue(_OpType.READ, _TestReq(), timeout=3.0)
+            self._enqueue(_OpType.READ, base._TestReq(), timeout=3.0)
             return True
         except Exception:
             self.is_connected = False
             return False
 
-    # ───────────────────── Public Read / Write ─────────────────────
-
-    def read(self, req: PLCReadRequest) -> Any:
-        return self._enqueue(_OpType.READ, req)
-
-    def write(self, req: PLCWriteRequest) -> bool:
-        return self._enqueue(_OpType.WRITE, req)
-
     # ───────────────────── Internal I/O (worker thread only) ─────────────────────
 
+    # Valid Mitsubishi device prefixes (word + bit)
+    VALID_DEVICES_WORD = {'D', 'W', 'R', 'ZR', 'TN', 'CN', 'SD'}
+    VALID_DEVICES_BIT = {'M', 'X', 'Y', 'B', 'L', 'SM', 'TS', 'CS'}
+    VALID_DEVICES = VALID_DEVICES_WORD | VALID_DEVICES_BIT
+
     def _words_to_bytes(self, words: list[int]) -> bytes:
-        """Convert list of 16-bit word values to bytes (little-endian per word)."""
+        """
+        Convert list of 16-bit word values to bytes for STRING decoding.
+
+        Mitsubishi MC Protocol stores ASCII strings in each 16-bit register as:
+          Low  byte (bits 0-7)  → 1st character (even position)
+          High byte (bits 8-15) → 2nd character (odd position)
+
+        pymcprotocol returns words in native format, so we use little-endian
+        unpacking: struct.pack('<H', word) → [low_byte, high_byte]
+        which gives the correct character order.
+        """
         result = bytearray()
         for w in words:
             result.extend(struct.pack('<H', w & 0xFFFF))
         return bytes(result)
 
+    def _words_to_bytes_swapped(self, words: list[int]) -> bytes:
+        """
+        Alternate byte order: high byte first, then low byte.
+        Used as fallback if the standard order produces non-printable output.
+        """
+        result = bytearray()
+        for w in words:
+            result.extend(struct.pack('>H', w & 0xFFFF))
+        return bytes(result)
+
     def _bytes_to_words(self, data: bytes) -> list[int]:
-        """Convert bytes to list of 16-bit word values."""
+        """Convert bytes to list of 16-bit word values (little-endian)."""
         # Pad to even length
         if len(data) % 2 != 0:
             data = data + b'\x00'
@@ -523,10 +452,47 @@ class MitsubishiPLCService(BasePLCService):
         return words
 
     def _normalize_headdevice(self, address: str) -> str:
-        """Normalize Mitsubishi device names so tags like `zr100` work reliably."""
+        """
+        Normalize Mitsubishi device names with proper device prefix validation.
+        Supports: D, W, R, ZR, M, X, Y, B, L, SM, TN, CN, TS, CS, SD
+        Examples: 'D100', 'ZR0', 'ZR10', 'M10', 'W1F' (hex for bit/link devices)
+        """
         headdevice = re.sub(r"\s+", "", address or "").upper()
-        if not re.fullmatch(r"[A-Z]+[0-9A-F]+", headdevice):
-            raise ValueError(f"Invalid Mitsubishi address: {address}")
+
+        # Extract device prefix and numeric part
+        match = re.fullmatch(r'([A-Z]{1,2})(\d+)', headdevice)
+        is_decimal_match = bool(match)
+        if not match:
+            # Also allow hex addresses for link/bit devices (W, B, X, Y)
+            match = re.fullmatch(r'([A-Z]{1,2})([0-9A-F]+)', headdevice)
+            if not match:
+                raise ValueError(
+                    f"Invalid Mitsubishi address format: '{address}'. "
+                    f"Expected format: DEVICE + NUMBER (e.g. D100, ZR0, M10)"
+                )
+
+        prefix = match.group(1)
+        num_str = match.group(2)
+
+        if prefix not in self.VALID_DEVICES:
+            raise ValueError(
+                f"Unknown Mitsubishi device prefix: '{prefix}' in address '{address}'. "
+                f"Valid devices: {', '.join(sorted(self.VALID_DEVICES))}"
+            )
+
+        # BUGFIX: pymcprotocol treats ZR registers as hexadecimal (base 16).
+        # However, users and GX Works always address ZR registers in decimal.
+        # E.g., if a user asks for ZR10 (offset 10 decimal), pymcprotocol 
+        # reads it as int("10", 16) = offset 16.
+        # We intercept decimal ZR requests and convert them to a hex string.
+        # NOTE: We MUST zero-pad the hex string (e.g. 10 -> 00000A) because if 
+        # the hex string consists entirely of letters (e.g. 'A'), pymcprotocol's
+        # regex will misinterpret 'ZRA' as a device prefix and crash.
+        if prefix == 'ZR' and is_decimal_match:
+            decimal_val = int(num_str, 10)
+            hex_str = f"{decimal_val:06X}"
+            return f"ZR{hex_str}"
+
         return headdevice
 
     def _do_read(self, req) -> Any:
@@ -535,7 +501,7 @@ class MitsubishiPLCService(BasePLCService):
             raise PLCConnectionError("Mitsubishi client not initialized")
 
         # Handle internal test_connection probe
-        if isinstance(req, _TestReq):
+        if isinstance(req, base._TestReq):
             try:
                 self.client.batchread_bitunits(headdevice="M0", readsize=1)
             except Exception:
@@ -574,12 +540,34 @@ class MitsubishiPLCService(BasePLCService):
                 return 0.0
 
             elif req.data_type == DataType.STRING:
-                # STRING: each D register holds 2 ASCII characters
+                # STRING: each 16-bit word register holds 2 ASCII characters.
+                # 1 register = 2 chars, so register_count=10 reads up to 20 chars.
                 reg_count = getattr(req, 'register_count', 10) or 10
                 word_data = self.client.batchread_wordunits(headdevice, reg_count)
-                raw = self._words_to_bytes(word_data)
-                text = raw.decode('ascii', errors='replace').rstrip('\x00').rstrip()
-                return text
+
+                # Try standard byte order (LE: low byte = 1st char)
+                raw_le = self._words_to_bytes(word_data)
+                text_le = raw_le.decode('ascii', errors='replace').split('\x00')[0]
+
+                # Try swapped byte order (BE: high byte = 1st char)
+                raw_be = self._words_to_bytes_swapped(word_data)
+                text_be = raw_be.decode('ascii', errors='replace').split('\x00')[0]
+
+                # Score each candidate: count printable ASCII chars (0x20-0x7E)
+                def _printable_score(s: str) -> int:
+                    return sum(1 for c in s if 0x20 <= ord(c) <= 0x7E) if s else 0
+
+                score_le = _printable_score(text_le)
+                score_be = _printable_score(text_be)
+
+                # Pick the result with more printable characters
+                if score_be > score_le:
+                    logger.debug(
+                        f"STRING {headdevice}: swapped byte order chosen "
+                        f"(LE score={score_le}, BE score={score_be})"
+                    )
+                    return text_be
+                return text_le
 
             else:
                 word_data = self.client.batchread_wordunits(headdevice, 1)
@@ -629,6 +617,3 @@ class MitsubishiPLCService(BasePLCService):
             raise PLCWriteError(f"Mitsubishi write failed: {e}")
 
 
-class _TestReq:
-    """Lightweight sentinel for internal test_connection probes via the RPC queue."""
-    pass

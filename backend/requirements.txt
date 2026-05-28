@@ -21,6 +21,9 @@ httpx==0.27.0
 
 # Note: Fanuc integration uses built-in Python libraries (ftplib, tomllib, etc.)
 
+# Redis (cross-worker RPC queue)
+redis>=5.0.0
+
 # Utilities
 python-dotenv==1.0.1
 

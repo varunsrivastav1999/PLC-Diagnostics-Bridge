@@ -14,6 +14,12 @@
                <div class="h-2 w-2 rounded-full animate-glow-pulse" :class="operation === 'read' ? 'bg-cyan-500' : 'bg-amber-500'"></div>
                <span class="text-[10px] font-black tracking-[0.2em] uppercase" :class="operation === 'read' ? 'text-cyan-500' : 'text-amber-500'">Operations Terminal</span>
             </template>
+            <!-- Latency Badge -->
+            <div v-if="store.isConnected && latencyMs > 0" class="ml-3 flex items-center gap-1 px-2 py-0.5 rounded-full border text-[8px] font-black tracking-wider uppercase"
+                 :class="latencyMs < 50 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : latencyMs < 200 ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-red-500/10 border-red-500/30 text-red-400'">
+              <div class="h-1.5 w-1.5 rounded-full animate-pulse" :class="latencyMs < 50 ? 'bg-emerald-400' : latencyMs < 200 ? 'bg-amber-400' : 'bg-red-400'"></div>
+              {{ latencyMs }}ms
+            </div>
           </div>
           
           <!-- Controls -->
@@ -23,10 +29,31 @@
               <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[9px] font-black tracking-widest uppercase transition-all duration-200" 
                       :class="fanucMode === 'pendant' ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 border border-transparent hover:text-slate-400'" 
                       @click="fanucMode = 'pendant'">
-                <i class="pi pi-table" style="font-size: 9px;"></i> iPendant VIRTUAL
+                <i class="pi pi-table" style="font-size: 9px;"></i> PRESETS (SPRAY SETTING)
               </button>
               <div class="w-px h-4 bg-slate-700/50 self-center mx-1"></div>
-              <!-- Fanuc Diagnostics -->
+              
+              <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[9px] font-black tracking-widest uppercase transition-all duration-200" 
+                      :class="fanucMode === 'manual' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30' : 'text-slate-500 border border-transparent hover:text-slate-400'" 
+                      @click="fanucMode = 'manual'">
+                <i class="pi pi-sliders-v" style="font-size: 9px;"></i> MANUAL SETTING (BELL/GUN)
+              </button>
+              <div class="w-px h-4 bg-slate-700/50 self-center mx-1"></div>
+              
+              <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[9px] font-black tracking-widest uppercase transition-all duration-200" 
+                      :class="fanucMode === 'gnmbsc' ? 'bg-fuchsia-500/15 text-fuchsia-400 border border-fuchsia-500/30' : 'text-slate-500 border border-transparent hover:text-slate-400'" 
+                      @click="fanucMode = 'gnmbsc'">
+                <i class="pi pi-cog" style="font-size: 9px;"></i> GNM/BSC
+              </button>
+              <div class="w-px h-4 bg-slate-700/50 self-center mx-1"></div>
+              
+              <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[9px] font-black tracking-widest uppercase transition-all duration-200" 
+                      :class="fanucMode === 'colors' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 border border-transparent hover:text-slate-400'" 
+                      @click="fanucMode = 'colors'">
+                <i class="pi pi-palette" style="font-size: 9px;"></i> COLOR
+              </button>
+              <div class="w-px h-4 bg-slate-700/50 self-center mx-1"></div>
+              
               <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[9px] font-black tracking-widest uppercase transition-all duration-200" 
                       :class="fanucMode === 'diagnostics' ? 'bg-red-500/15 text-red-400 border border-red-500/30' : 'text-slate-500 border border-transparent hover:text-slate-400'" 
                       @click="fanucMode = 'diagnostics'">
@@ -195,9 +222,13 @@
             <div class="flex items-center justify-between px-3 mt-1 py-2 mb-2">
               <div class="flex flex-col">
                 <span class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-0.5">PaintTool Diagnostic</span>
-                <span class="text-xs font-black text-amber-500 tracking-[0.3em] uppercase drop-shadow-md">iPendant Virtual</span>
+                <span class="text-xs font-black text-amber-500 tracking-[0.3em] uppercase drop-shadow-md">PRESETS (SPRAY SETTING)</span>
               </div>
-              <div class="flex items-center gap-1.5">
+              <div class="flex items-center gap-3">
+                 <!-- Active preset type badge -->
+                 <span class="px-2 py-0.5 rounded-full text-[8px] font-black tracking-widest uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                   {{ fanucForm.preset_type }}
+                 </span>
                  <div class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]"></div>
                  <span class="text-[9px] font-black tracking-widest text-slate-400">STATUS: READY</span>
               </div>
@@ -224,6 +255,9 @@
                 <Button @click="fetchFanucPresets" label="LOAD FROM ROBOT" icon="pi pi-refresh" 
                         class="ml-auto bg-blue-600 hover:bg-blue-500 border-none text-[9px] font-black tracking-widest text-white px-5 h-8 shadow-[0_0_10px_rgba(37,99,235,0.4)] transition-all active:scale-95" 
                         :disabled="!store.isConnected" :loading="loading" />
+                <Button @click="writeAllFanucPresets" label="WRITE ALL" icon="pi pi-upload" 
+                        class="bg-amber-600 hover:bg-amber-500 border-none text-[9px] font-black tracking-widest text-white px-4 h-8 shadow-[0_0_10px_rgba(245,158,11,0.4)] transition-all active:scale-95" 
+                        :disabled="!store.isConnected || !fanucPresets" :loading="loading" />
               </div>
 
               <!-- Screen Data Grid -->
@@ -281,6 +315,9 @@
             <Button @click="fetchFanucDiagnostic('errhist.ls')" label="ALARM HISTORY" icon="pi pi-history" class="bg-amber-900/40 hover:bg-amber-800 text-amber-500 border border-amber-800/50 text-[10px] font-black tracking-wider px-3 py-1.5" :disabled="!store.isConnected || loading" />
             <Button @click="fetchFanucDiagnostic('summary.dg')" label="SYSTEM SUMMARY" icon="pi pi-server" class="bg-blue-900/40 hover:bg-blue-800 text-blue-400 border border-blue-800/50 text-[10px] font-black tracking-wider px-3 py-1.5" :disabled="!store.isConnected || loading" />
             <Button @click="fetchFanucDiagnostic('logbook.ls')" label="LOGBOOK" icon="pi pi-book" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600/50 text-[10px] font-black tracking-wider px-3 py-1.5" :disabled="!store.isConnected || loading" />
+            <div class="w-px h-6 bg-slate-700/50 self-center"></div>
+            <Button @click="fetchActivePresets" label="ACTIVE PRESETS" icon="pi pi-sliders-h" class="bg-indigo-900/40 hover:bg-indigo-800 text-indigo-400 border border-indigo-800/50 text-[10px] font-black tracking-wider px-3 py-1.5" :disabled="!store.isConnected || loading" />
+            <Button @click="fetchDiagColorConfig" label="COLOR CONFIG" icon="pi pi-palette" class="bg-emerald-900/40 hover:bg-emerald-800 text-emerald-400 border border-emerald-800/50 text-[10px] font-black tracking-wider px-3 py-1.5" :disabled="!store.isConnected || loading" />
             <div class="flex-1"></div>
             <Button @click="clearDiagnosticLog" icon="pi pi-times" class="bg-slate-700 hover:bg-slate-600 text-slate-400 border border-slate-600/50 text-[10px] font-black tracking-wider px-3 py-1.5" v-tooltip.bottom="'Clear Log'" />
             <span v-if="loading" class="text-[10px] font-black text-amber-500 tracking-widest animate-pulse flex items-center"><i class="pi pi-spin pi-spinner mr-2"></i> FETCHING MD FILE...</span>
@@ -295,24 +332,239 @@
             </div>
 
             <!-- Scrollable Log Content -->
-            <div class="flex-1 p-4 overflow-auto font-mono text-xs whitespace-pre-wrap bg-black text-green-400 border border-slate-800/50 leading-relaxed shadow-[inset_0_0_30px_rgba(0,0,0,0.8)] scrollbar-custom">
-              <div v-if="!diagnosticLog" class="h-full flex flex-col items-center justify-center opacity-30 select-none">
+            <div class="flex-1 overflow-auto bg-black border border-slate-800/50 shadow-[inset_0_0_30px_rgba(0,0,0,0.8)] scrollbar-custom relative">
+              <div v-if="!diagnosticLog" class="absolute inset-0 flex flex-col items-center justify-center opacity-30 select-none">
                  <i class="pi pi-server text-4xl mb-3"></i>
                  <span class="font-black tracking-[0.2em] uppercase text-[10px]">Select Diagnostic File</span>
                  <span class="text-[9px] text-slate-500 mt-2 text-center max-w-xs uppercase tracking-widest">FTP LINK: errall.ls · erract.ls · errhist.ls · summary.dg · logbook.ls</span>
               </div>
-              <div v-else class="min-h-full break-words selection:bg-green-500/30">{{ diagnosticLog }}</div>
+              <table v-else class="w-full text-left border-collapse min-w-max">
+                <thead class="sticky top-0 bg-slate-900/95 backdrop-blur-md z-10 shadow-lg border-b border-slate-700">
+                  <tr>
+                    <th class="px-4 py-3 text-[9px] font-black text-slate-400 tracking-widest uppercase border-r border-slate-800/50 w-24">DATE / TIME</th>
+                    <th class="px-4 py-3 text-[9px] font-black text-slate-400 tracking-widest uppercase border-r border-slate-800/50 w-24 text-center">SEVERITY</th>
+                    <th class="px-4 py-3 text-[9px] font-black text-slate-400 tracking-widest uppercase border-r border-slate-800/50 w-32">ALARM CODE</th>
+                    <th class="px-4 py-3 text-[9px] font-black text-slate-400 tracking-widest uppercase">MESSAGE</th>
+                  </tr>
+                </thead>
+                <tbody class="font-mono text-xs">
+                  <tr v-for="(alarm, i) in parsedDiagnosticAlarms" :key="i" class="border-b border-slate-800/30 hover:bg-slate-800/50 transition-colors">
+                    <td class="px-4 py-2.5 border-r border-slate-800/30 text-slate-500">
+                      <div class="flex flex-col gap-0.5">
+                        <span>{{ alarm.date }}</span>
+                        <span class="text-[10px]">{{ alarm.time }}</span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-2.5 border-r border-slate-800/30 text-center">
+                       <span class="px-2 py-0.5 rounded-md border text-[9px] font-black tracking-widest" :class="alarm.cls">
+                         {{ alarm.severity }}
+                       </span>
+                    </td>
+                    <td class="px-4 py-2.5 border-r border-slate-800/30 font-bold" :class="alarm.severity === 'FAULT' ? 'text-red-300' : alarm.severity === 'WARN' ? 'text-amber-300' : 'text-blue-300'">
+                      {{ alarm.code }}
+                    </td>
+                    <td class="px-4 py-2.5 text-slate-300">
+                      {{ alarm.message }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
           </div>
         </template>
+
+        <!-- Fanuc Color Setup -->
+        <template v-if="store.connectionConfig.plc_type === 'fanuc' && fanucMode === 'colors'">
+          <div class="flex flex-col flex-1 min-h-0 relative select-none">
+          <div class="flex-1 flex flex-col bg-slate-800 rounded-3xl border border-slate-700 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden relative p-3 pb-4">
+            <div class="absolute top-0 left-0 right-0 h-2 bg-emerald-500"></div>
+            
+            <div class="flex items-center justify-between px-3 mt-1 py-2 mb-2">
+              <div class="flex flex-col">
+                <span class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-0.5">PaintTool System</span>
+                <span class="text-xs font-black text-emerald-500 tracking-[0.3em] uppercase drop-shadow-md">Color Configuration</span>
+              </div>
+            </div>
+
+            <div class="flex-1 flex flex-col bg-slate-950 rounded-xl border-[6px] border-slate-900 overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]">
+              <div class="flex gap-4 bg-emerald-900/40 border-b border-emerald-800/50 px-4 py-3 items-end">
+                <div class="flex flex-col gap-1.5 w-40">
+                  <label class="text-[9px] font-black text-emerald-200 tracking-widest uppercase">Configuration Type</label>
+                  <Dropdown v-model="fanucColorMode" :options="[{label: 'Color Setup', value: 'setup'}, {label: 'Cycle Times', value: 'cycle'}]" optionLabel="label" optionValue="value" class="w-full text-xs font-bold bg-slate-900/80 border-emerald-500/30 text-white" :disabled="!store.isConnected" @change="fanucColors = null" />
+                </div>
+                
+                <Button @click="fetchFanucColors" label="FETCH FROM ROBOT" icon="pi pi-cloud-download" 
+                        class="ml-auto bg-emerald-600 hover:bg-emerald-500 border-none text-[9px] font-black tracking-widest text-white px-5 h-8 shadow-[0_0_10px_rgba(16,185,129,0.4)] transition-all active:scale-95" 
+                        :disabled="!store.isConnected" :loading="loading" />
+                <Button v-if="fanucColorMode === 'setup'" @click="saveAllFanucColors" label="SAVE ALL COLORS" icon="pi pi-save" 
+                        class="bg-amber-600 hover:bg-amber-500 border-none text-[9px] font-black tracking-widest text-white px-4 h-8 shadow-[0_0_10px_rgba(245,158,11,0.4)] transition-all active:scale-95" 
+                        :disabled="!store.isConnected || !fanucColors" :loading="loading" />
+              </div>
+
+              <div class="flex-1 overflow-auto relative bg-[#0f172a]">
+                <div v-if="!fanucColors" class="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-900/80 backdrop-blur-sm z-20">
+                   <div class="p-4 rounded-full bg-slate-800/80 border border-slate-700 shadow-xl">
+                      <i class="pi pi-palette text-emerald-400 text-3xl animate-pulse"></i>
+                   </div>
+                   <span class="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase drop-shadow">Awaiting Color Data</span>
+                </div>
+                
+                <table v-else class="w-full text-left border-collapse min-w-max">
+                  <thead class="sticky top-0 bg-slate-800/90 backdrop-blur-md z-10 shadow-lg border-b border-slate-700">
+                    <tr>
+                      <th class="px-3 py-2 text-[9px] font-black text-slate-400 tracking-widest uppercase border-r border-slate-700/50 w-12 text-center">CLR</th>
+                      <th v-for="col in displayColorColumns" :key="col.key" class="px-3 py-2 text-[9px] font-black text-emerald-400 tracking-widest uppercase border-r border-slate-700/50 text-center">
+                        {{ col.label }} <span class="text-slate-400 block text-[8px] mt-0.5 opacity-80">{{ col.unit }}</span>
+                      </th>
+                      <th v-if="fanucColorMode === 'setup'" class="px-3 py-2 text-[9px] font-black text-slate-400 tracking-widest uppercase w-14 text-center">
+                        <i class="pi pi-send"></i>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, index) in fanucColors" :key="index" class="border-b border-slate-800/50 hover:bg-emerald-900/20 transition-colors group">
+                      <td class="px-3 py-1.5 text-center border-r border-slate-800/50 bg-slate-900/20 text-[10px] font-black text-slate-500 tracking-wider">
+                         {{ String(index + 1).padStart(2, '0') }}
+                      </td>
+                      <td v-for="col in displayColorColumns" :key="col.key" class="px-1 py-1 border-r border-slate-800/30 text-center">
+                         <span v-if="fanucColorMode === 'cycle'" class="font-mono text-sm text-emerald-200">{{ row[col.key] !== undefined ? Number(row[col.key]).toFixed(1) : '-' }}</span>
+                         <InputText v-else type="number" 
+                                    v-model.number="row[col.key]" 
+                                    class="w-full text-center font-mono text-sm bg-transparent border border-transparent focus:border-emerald-500 hover:bg-slate-800 transition-colors p-1.5 focus:shadow-[0_0_8px_rgba(16,185,129,0.2)] text-emerald-300" />
+                      </td>
+                      <td v-if="fanucColorMode === 'setup'" class="px-1 py-1.5 text-center">
+                        <Button @click="saveSingleColor(index)" icon="pi pi-send" class="h-7 w-7 bg-slate-700/50 hover:bg-emerald-500 border-none text-slate-400 hover:text-black transition-all active:scale-90" v-tooltip.left="'Write Color ' + (index + 1)" />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          </div>
+        </template>
+
+        <!-- Fanuc Manual Settings -->
+        <template v-if="store.connectionConfig.plc_type === 'fanuc' && fanucMode === 'manual'">
+          <div class="flex flex-col flex-1 min-h-0 relative select-none">
+          <div class="flex-1 flex flex-col bg-slate-800 rounded-3xl border border-slate-700 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden relative p-3 pb-4">
+            <div class="absolute top-0 left-0 right-0 h-2 bg-blue-500"></div>
+            <div class="flex items-center justify-between px-3 mt-1 py-2 mb-2">
+              <div class="flex flex-col">
+                <span class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-0.5">PaintTool System</span>
+                <span class="text-xs font-black text-blue-500 tracking-[0.3em] uppercase drop-shadow-md">MANUAL SETTING (BELL/GUN)</span>
+              </div>
+            </div>
+            <div class="flex-1 flex flex-col bg-slate-950 rounded-xl border-[6px] border-slate-900 overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]">
+              <div class="flex gap-4 bg-blue-900/40 border-b border-blue-800/50 px-4 py-3 items-end">
+                
+                <div class="flex flex-col gap-1.5 w-40">
+                  <label class="text-[9px] font-black text-blue-200 tracking-widest uppercase">Unit Type</label>
+                  <Dropdown v-model="fanucManualMode" :options="[{label: 'BELL', value: 'BELL'}, {label: 'GUN', value: 'GUN'}]" optionLabel="label" optionValue="value" class="w-full text-xs font-bold bg-slate-900/80 border-blue-500/30 text-white" :disabled="!store.isConnected" @change="fanucManual = null" />
+                </div>
+                
+                <Button @click="fetchFanucExtended('manual')" label="FETCH MANUAL SETTINGS" icon="pi pi-cloud-download" 
+                        class="ml-auto bg-blue-600 hover:bg-blue-500 border-none text-[9px] font-black tracking-widest text-white px-5 h-8 shadow-[0_0_10px_rgba(37,99,235,0.4)] transition-all active:scale-95" 
+                        :disabled="!store.isConnected" :loading="loading" />
+                <Button @click="saveFanucExtended('manual')" label="SAVE MANUAL SETTINGS" icon="pi pi-save" 
+                        class="bg-amber-600 hover:bg-amber-500 border-none text-[9px] font-black tracking-widest text-white px-4 h-8 shadow-[0_0_10px_rgba(245,158,11,0.4)] transition-all active:scale-95" 
+                        :disabled="!store.isConnected || !fanucManual" :loading="loading" />
+              </div>
+              <div class="flex-1 overflow-auto relative bg-[#0f172a]">
+                <div v-if="!fanucManual" class="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-900/80 backdrop-blur-sm z-20">
+                   <div class="p-4 rounded-full bg-slate-800/80 border border-slate-700 shadow-xl">
+                      <i class="pi pi-sliders-v text-blue-400 text-3xl animate-pulse"></i>
+                   </div>
+                   <span class="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase drop-shadow">Awaiting Manual Data</span>
+                </div>
+                <table v-else class="w-full text-left border-collapse min-w-max">
+                  <thead class="sticky top-0 bg-slate-800/90 backdrop-blur-md z-10 shadow-lg border-b border-slate-700">
+                    <tr>
+                      <th class="px-3 py-2 text-[9px] font-black text-slate-400 tracking-widest uppercase border-r border-slate-700/50 w-12 text-center">CH</th>
+                      <th v-for="col in displayManualColumns" :key="col.key" class="px-3 py-2 text-[9px] font-black text-blue-400 tracking-widest uppercase border-r border-slate-700/50 text-center">
+                        {{ col.label }}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, index) in fanucManual" :key="index" class="border-b border-slate-800/50 hover:bg-blue-900/20 transition-colors">
+                      <td class="px-3 py-1.5 text-center border-r border-slate-800/50 bg-slate-900/20 text-[10px] font-black text-slate-500 tracking-wider">
+                         {{ String(index + 1).padStart(2, '0') }}
+                      </td>
+                      <td v-for="col in displayManualColumns" :key="col.key" class="px-1 py-1 border-r border-slate-800/30 text-center">
+                         <InputText type="number" v-model.number="row[col.key]" class="w-full text-center font-mono text-sm bg-transparent border border-transparent focus:border-blue-500 hover:bg-slate-800 transition-colors p-1.5 focus:shadow-[0_0_8px_rgba(59,130,246,0.2)] text-blue-300" />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          </div>
+        </template>
+
+        <!-- Fanuc GNM/BSC Settings -->
+        <template v-if="store.connectionConfig.plc_type === 'fanuc' && fanucMode === 'gnmbsc'">
+          <div class="flex flex-col flex-1 min-h-0 relative select-none">
+          <div class="flex-1 flex flex-col bg-slate-800 rounded-3xl border border-slate-700 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden relative p-3 pb-4">
+            <div class="absolute top-0 left-0 right-0 h-2 bg-fuchsia-500"></div>
+            <div class="flex items-center justify-between px-3 mt-1 py-2 mb-2">
+              <div class="flex flex-col">
+                <span class="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-0.5">PaintTool System</span>
+                <span class="text-xs font-black text-fuchsia-500 tracking-[0.3em] uppercase drop-shadow-md">GNM/BSC</span>
+              </div>
+            </div>
+            <div class="flex-1 flex flex-col bg-slate-950 rounded-xl border-[6px] border-slate-900 overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]">
+              <div class="flex gap-4 bg-fuchsia-900/40 border-b border-fuchsia-800/50 px-4 py-3 items-end">
+                <Button @click="fetchFanucExtended('gnmbsc')" label="FETCH GNM/BSC" icon="pi pi-cloud-download" 
+                        class="ml-auto bg-fuchsia-600 hover:bg-fuchsia-500 border-none text-[9px] font-black tracking-widest text-white px-5 h-8 shadow-[0_0_10px_rgba(217,70,239,0.4)] transition-all active:scale-95" 
+                        :disabled="!store.isConnected" :loading="loading" />
+                <Button @click="saveFanucExtended('gnmbsc')" label="SAVE GNM/BSC" icon="pi pi-save" 
+                        class="bg-amber-600 hover:bg-amber-500 border-none text-[9px] font-black tracking-widest text-white px-4 h-8 shadow-[0_0_10px_rgba(245,158,11,0.4)] transition-all active:scale-95" 
+                        :disabled="!store.isConnected || !fanucGnmBsc" :loading="loading" />
+              </div>
+              <div class="flex-1 overflow-auto relative bg-[#0f172a]">
+                <div v-if="!fanucGnmBsc" class="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-900/80 backdrop-blur-sm z-20">
+                   <div class="p-4 rounded-full bg-slate-800/80 border border-slate-700 shadow-xl">
+                      <i class="pi pi-cog text-fuchsia-400 text-3xl animate-spin-slow"></i>
+                   </div>
+                   <span class="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase drop-shadow">Awaiting GNM/BSC Data</span>
+                </div>
+                <table v-else class="w-full text-left border-collapse min-w-max">
+                  <thead class="sticky top-0 bg-slate-800/90 backdrop-blur-md z-10 shadow-lg border-b border-slate-700">
+                    <tr>
+                      <th class="px-3 py-2 text-[9px] font-black text-slate-400 tracking-widest uppercase border-r border-slate-700/50 w-12 text-center">UNIT</th>
+                      <th v-for="col in displayGnmBscColumns" :key="col.key" class="px-3 py-2 text-[9px] font-black text-fuchsia-400 tracking-widest uppercase border-r border-slate-700/50 text-center">
+                        {{ col.label }}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, index) in fanucGnmBsc" :key="index" class="border-b border-slate-800/50 hover:bg-fuchsia-900/20 transition-colors">
+                      <td class="px-3 py-1.5 text-center border-r border-slate-800/50 bg-slate-900/20 text-[10px] font-black text-slate-500 tracking-wider">
+                         {{ String(index + 1).padStart(2, '0') }}
+                      </td>
+                      <td v-for="col in displayGnmBscColumns" :key="col.key" class="px-1 py-1 border-r border-slate-800/30 text-center">
+                         <InputText type="number" v-model.number="row[col.key]" class="w-full text-center font-mono text-sm bg-transparent border border-transparent focus:border-fuchsia-500 hover:bg-slate-800 transition-colors p-1.5 focus:shadow-[0_0_8px_rgba(217,70,239,0.2)] text-fuchsia-300" />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          </div>
+        </template>
+
+
       </div>
     </template>
   </Card>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { usePlcStore } from '../stores/plcStore'
 import { useToast } from 'primevue/usetoast'
 import api from '../services/api'
@@ -325,9 +577,12 @@ const operation = ref('read')
 const loading = ref(false)
 const isPollingLocal = ref(false)
 const lastReadResult = ref(null)
+const latencyMs = ref(0)
+let latencyTimer = null
 
 const dataTypes = ref(['BOOL', 'INT', 'DINT', 'REAL', 'FLOAT', 'STRING'])
-const fanucPresetTypes = ['BELL', 'GUN']
+const fanucPresetSchema = ref(null)
+const fanucPresetTypes = computed(() => fanucPresetSchema.value ? Object.keys(fanucPresetSchema.value) : ['BELL', 'GUN'])
 
 const form = ref({
   data_type: 'INT',
@@ -338,14 +593,206 @@ const form = ref({
 })
 
 // Fanuc specific state
-const fanucMode = ref('pendant') // 'pendant', 'diagnostics', or 'raw'
+const fanucMode = ref('pendant') // 'pendant', 'diagnostics', 'colors'
 const fanucForm = ref({
   job_no: 1,
   color_no: 1,
   preset_type: 'BELL'
 })
 const fanucPresets = ref(null)
+
+const fetchFanucSchema = async () => {
+    try {
+        const res = await api.getFanucSchema();
+        if (res.data.success) {
+            fanucPresetSchema.value = res.data.schema;
+        }
+    } catch (e) {
+        console.error("Failed to fetch Fanuc preset schema", e);
+    }
+}
+
+// ─── Latency Polling ───
+const pollLatency = async () => {
+    if (!store.isConnected) { latencyMs.value = 0; return; }
+    try {
+        const cfg = store.connectionConfig;
+        const res = await api.getLatency(cfg.plc_type, cfg.ip, cfg.port);
+        if (res.data.success) {
+            latencyMs.value = res.data.latency_ms || 0;
+        }
+    } catch { latencyMs.value = 0; }
+}
+
+onMounted(() => {
+    fetchFanucSchema();
+    fetchFanucColorSchema();
+    fetchFanucExtendedSchema();
+    latencyTimer = setInterval(pollLatency, 5000);
+})
+
+onUnmounted(() => {
+    if (latencyTimer) clearInterval(latencyTimer);
+})
+
 const diagnosticLog = ref(null)
+
+const fanucColorSchema = ref(null);
+const fanucColorMode = ref('setup');
+const fanucColors = ref(null);
+
+
+const fanucExtendedSchema = ref(null);
+const fanucManualMode = ref('BELL');
+const fanucManual = ref(null);
+const fanucGnmBsc = ref(null);
+
+const fetchFanucExtendedSchema = async () => {
+    try {
+        const res = await api.getFanucExtendedSchema();
+        if (res.data.success) {
+            fanucExtendedSchema.value = res.data;
+        }
+    } catch (e) {
+        console.error("Failed to fetch Fanuc extended schema", e);
+    }
+}
+
+const fetchFanucExtended = async (type) => {
+    if (!store.isConnected) return;
+    loading.value = true;
+    try {
+        const payload = { ...store.connectionConfig, manual_type: type === 'manual' ? fanucManualMode.value : undefined };
+        const res = await api.getFanucExtended(payload, type);
+        if (res.data.success) {
+            if (type === 'manual') fanucManual.value = res.data.value;
+            if (type === 'gnmbsc') fanucGnmBsc.value = res.data.value;
+            toast.add({ severity: 'success', summary: 'Data Fetched', detail: `Loaded ${type} data.`, life: 2500 });
+        } else {
+            toast.add({ severity: 'error', summary: 'Fetch Error', detail: res.data.message, life: 5000 });
+        }
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: `Could not fetch ${type} data`, life: 4000 });
+    } finally {
+        loading.value = false;
+    }
+}
+
+const saveFanucExtended = async (type) => {
+    if (!store.isConnected) return;
+    loading.value = true;
+    try {
+        const valueToSave = type === 'manual' ? fanucManual.value : fanucGnmBsc.value;
+        const payload = { ...store.connectionConfig, data_type: 'STRING', address: 'EXT_SETUP', value: valueToSave, manual_type: type === 'manual' ? fanucManualMode.value : undefined };
+        const res = await api.saveFanucExtended(payload, type);
+        if (res.data.success) {
+            toast.add({ severity: 'success', summary: 'Data Saved', detail: `Saved ${type} config.`, life: 3000 });
+        } else {
+            toast.add({ severity: 'error', summary: 'Save Error', detail: res.data.message, life: 5000 });
+        }
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: `Could not save ${type} data`, life: 4000 });
+    } finally {
+        loading.value = false;
+    }
+}
+
+const displayManualColumns = computed(() => {
+    if (!fanucExtendedSchema.value || !fanucExtendedSchema.value.manual_vars) return [];
+    const vars = fanucExtendedSchema.value.manual_vars[fanucManualMode.value] || [];
+    return vars.map(k => ({
+        key: k,
+        label: k.replace(/_/g, ' ').toUpperCase()
+    }));
+});
+
+const displayGnmBscColumns = computed(() => {
+    if (!fanucExtendedSchema.value || !fanucExtendedSchema.value.gnm_bsc_vars) return [];
+    return fanucExtendedSchema.value.gnm_bsc_vars.map(k => ({
+        key: k,
+        label: k.replace(/_/g, ' ').toUpperCase()
+    }));
+});
+
+const fetchFanucColorSchema = async () => {
+    try {
+        const res = await api.getFanucColorSchema();
+        if (res.data.success) {
+            fanucColorSchema.value = res.data;
+        }
+    } catch (e) {
+        console.error("Failed to fetch Fanuc color schema", e);
+    }
+}
+
+const fetchFanucColors = async () => {
+    if (!store.isConnected) return;
+    loading.value = true;
+    try {
+        const payload = { ...store.connectionConfig };
+        const res = await api.getFanucColors(payload, fanucColorMode.value);
+        if (res.data.success) {
+            fanucColors.value = res.data.value;
+            toast.add({ severity: 'success', summary: 'Colors Fetched', detail: `Loaded color ${fanucColorMode.value} data.`, life: 2500 });
+        } else {
+            toast.add({ severity: 'error', summary: 'Fetch Error', detail: res.data.message, life: 5000 });
+        }
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Could not fetch color data', life: 4000 });
+    } finally {
+        loading.value = false;
+    }
+}
+
+const saveAllFanucColors = async () => {
+    if (!store.isConnected || !fanucColors.value) return;
+    loading.value = true;
+    try {
+        const payload = { ...store.connectionConfig, data_type: 'STRING', address: 'COLOR_SETUP', value: fanucColors.value };
+        const res = await api.saveFanucColors(payload, 'setup');
+        if (res.data.success) {
+            toast.add({ severity: 'success', summary: 'Colors Saved', detail: 'All color configurations written to robot.', life: 3000 });
+        } else {
+            toast.add({ severity: 'error', summary: 'Save Error', detail: res.data.message, life: 5000 });
+        }
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Could not save color data', life: 4000 });
+    } finally {
+        loading.value = false;
+    }
+}
+
+const saveSingleColor = async (index) => {
+    if (!store.isConnected || !fanucColors.value) return;
+    loading.value = true;
+    try {
+        const payload = { ...store.connectionConfig, data_type: 'STRING', address: 'COLOR_SETUP', value: [fanucColors.value[index]] };
+        const res = await api.saveFanucColors(payload, 'setup');
+        if (res.data.success) {
+            toast.add({ severity: 'success', summary: 'Color Saved', detail: `Color ${index + 1} written to robot.`, life: 2500 });
+        } else {
+            toast.add({ severity: 'error', summary: 'Save Error', detail: res.data.message, life: 5000 });
+        }
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Could not save color data', life: 4000 });
+    } finally {
+        loading.value = false;
+    }
+}
+
+const displayColorColumns = computed(() => {
+    if (!fanucColorSchema.value) return [];
+    const keys = fanucColorMode.value === 'setup' ? fanucColorSchema.value.setup_vars : fanucColorSchema.value.cycle_vars;
+    if (!keys) return [];
+    
+    return keys.map(k => ({
+        key: k,
+        label: k.replace(/_/g, ' ').toUpperCase(),
+        unit: fanucColorMode.value === 'cycle' ? 'sec' : (k.includes('time') || k.includes('delay') ? 'sec' : k.includes('psi') ? 'psi' : k.includes('distance') ? 'mm' : k.includes('count') ? '#' : 'val')
+    }));
+});
+
+// ─── Diagnostics ───
 
 const fetchFanucDiagnostic = async (filename) => {
   if (!store.isConnected) return;
@@ -355,7 +802,7 @@ const fetchFanucDiagnostic = async (filename) => {
     const payload = {
       ...store.connectionConfig,
       data_type: 'STRING',
-      address: filename // Raw file requested by name e.g. errall.ls
+      address: filename
     };
     const res = await api.readData(payload);
     if (res.data.success) {
@@ -370,28 +817,161 @@ const fetchFanucDiagnostic = async (filename) => {
   }
 }
 
+const fetchActivePresets = async () => {
+  if (!store.isConnected) return;
+  loading.value = true;
+  diagnosticLog.value = null;
+  try {
+    const payload = {
+      ...store.connectionConfig,
+      data_type: 'STRING',
+      address: `${fanucForm.value.job_no},${fanucForm.value.color_no},${fanucForm.value.preset_type}`
+    };
+    const res = await api.readData(payload);
+    if (res.data.success) {
+      const presets = res.data.value;
+      let log = `=== ACTIVE PRESETS ===\nJob: ${fanucForm.value.job_no}  Color: ${fanucForm.value.color_no}  Type: ${fanucForm.value.preset_type}\n${'─'.repeat(60)}\n`;
+      presets.forEach((p, i) => {
+        log += `Preset ${String(i+1).padStart(2,'0')}: ${Object.entries(p).filter(([k]) => !['job_no','color_no','preset_no'].includes(k)).map(([k,v]) => `${k}=${v}`).join('  ')}\n`;
+      });
+      diagnosticLog.value = log;
+      toast.add({ severity: 'success', summary: 'Presets Loaded', detail: 'Active presets displayed in diagnostic log', life: 2500 });
+    }
+  } catch (error) {
+    diagnosticLog.value = `[ERROR FETCHING PRESETS]\n${error.message}`;
+  } finally {
+    loading.value = false;
+  }
+}
+
+const fetchDiagColorConfig = async () => {
+  if (!store.isConnected) return;
+  loading.value = true;
+  diagnosticLog.value = null;
+  try {
+    const payload = { ...store.connectionConfig };
+    const res = await api.getFanucColors(payload, 'setup');
+    if (res.data.success) {
+      const colors = res.data.value;
+      let log = `=== COLOR CONFIGURATION ===\n${'─'.repeat(60)}\n`;
+      colors.forEach((c) => {
+        const vals = Object.entries(c).filter(([k]) => k !== 'color_no').map(([k,v]) => `${k}=${v}`).join('  ');
+        if (vals.replace(/=0(\.0)?/g, '').trim()) {
+          log += `Color ${String(c.color_no).padStart(2,'0')}: ${vals}\n`;
+        }
+      });
+      if (log.split('\n').length <= 3) log += '(No color data configured on this controller)\n';
+      diagnosticLog.value = log;
+      toast.add({ severity: 'success', summary: 'Color Config', detail: 'Color configuration displayed', life: 2500 });
+    }
+  } catch (error) {
+    diagnosticLog.value = `[ERROR FETCHING COLOR CONFIG]\n${error.message}`;
+  } finally {
+    loading.value = false;
+  }
+}
+
 const clearDiagnosticLog = () => {
   diagnosticLog.value = null;
   toast.add({ severity: 'info', summary: 'Log Cleared', detail: 'Diagnostic log has been cleared', life: 1500 });
 }
 
+// Parse diagnostic log lines with alarm severity coloring
+const parsedDiagnosticAlarms = computed(() => {
+  if (!diagnosticLog.value) return [];
+  const lines = diagnosticLog.value.split('\n');
+  const alarms = [];
+  
+  lines.forEach(line => {
+      const cleanLine = line.trim();
+      if (cleanLine.length === 0 || cleanLine.startsWith('===')) return;
+      
+      let date = '-';
+      let time = '-';
+      let code = 'SYS';
+      let msg = cleanLine.replace(/"/g, '').trim();
+      let severity = 'INFO';
+      let cls = 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+
+      const dateMatch = cleanLine.match(/(\d{1,2}-[A-Za-z]{3}-\d{2})\s+(\d{1,2}:\d{2}\s*(?::\d{2})?)/);
+      if (dateMatch) {
+          date = dateMatch[1];
+          time = dateMatch[2];
+          // Strip date from msg
+          msg = msg.replace(dateMatch[0], '').trim();
+      }
+      
+      const codeMatch = msg.match(/([A-Z]+-\d+)\s+(.*)/i);
+      if (codeMatch) {
+          code = codeMatch[1].toUpperCase();
+          msg = codeMatch[2].trim();
+      } else if (msg.includes('R E S E T')) {
+          code = 'RESET';
+          msg = 'Fault Reset';
+      }
+      
+      // Remove trailing junk like 'WARN   00000000' from the message
+      const tailMatch = msg.match(/(.*)\s+(WARN|FAULT|INFO|NONE)\s*\d*$/);
+      if (tailMatch) {
+          msg = tailMatch[1].trim();
+      }
+      
+      if (cleanLine.includes('FAULT') || code.startsWith('SRVO') || code.startsWith('SYST') || code.startsWith('MOTN')) {
+          severity = 'FAULT';
+          cls = 'bg-red-500/10 text-red-400 border-red-500/30';
+      } else if (cleanLine.includes('WARN') || code.startsWith('WARN') || code.startsWith('TPIF')) {
+          severity = 'WARN';
+          cls = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+      } else if (code === 'RESET') {
+          severity = 'INFO';
+          cls = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+      }
+      
+      // Only push if it's not just a bunch of numbers or empty
+      if (msg.length > 2 && msg !== '00000000') {
+          alarms.push({
+              date: date,
+              time: time,
+              code: code,
+              message: msg,
+              severity: severity,
+              cls: cls,
+              raw: cleanLine
+          });
+      }
+  });
+  
+  return alarms;
+});
+
 const displayColumns = computed(() => {
-  if (fanucForm.value.preset_type === 'BELL') {
-    return [
-      { key: 'fluid_rate', label: 'Fluid Rate', unit: 'cc/min', min: 0, max: 2000 },
-      { key: 'bell_speed', label: 'Bell Speed', unit: 'krpm', min: 0, max: 100 },
-      { key: 'shape_air1', label: 'Shape Air 1', unit: 'L/min', min: 0, max: 800 },
-      { key: 'estat_KV', label: 'E-Stat', unit: 'kV', min: 0, max: 100 },
-      { key: 'shape_air2', label: 'Shape Air 2', unit: 'L/min', min: 0, max: 800 },
-    ];
-  }
-  // Default (GUN)
-  return [
+  const defaultColumns = [
     { key: 'fluid_rate', label: 'Fluid Rate', unit: 'cc/min', min: 0, max: 2000 },
     { key: 'atom_air', label: 'Atom Air', unit: 'L/min', min: 0, max: 800 },
     { key: 'fan_air', label: 'Fan Air', unit: 'L/min', min: 0, max: 800 },
     { key: 'estat_KV', label: 'E-Stat', unit: 'kV', min: 0, max: 100 }
   ];
+
+  if (!fanucPresetSchema.value) return defaultColumns;
+  
+  const schemaKeys = fanucPresetSchema.value[fanucForm.value.preset_type] || [];
+  if (!schemaKeys.length) return defaultColumns;
+
+  // Map known keys to rich objects, or create generic ones
+  const richMap = {
+      'fluid_rate': { key: 'fluid_rate', label: 'Fluid Rate', unit: 'cc/min', min: 0, max: 2000 },
+      'bell_speed': { key: 'bell_speed', label: 'Bell Speed', unit: 'krpm', min: 0, max: 100 },
+      'disk_speed': { key: 'disk_speed', label: 'Disk Speed', unit: 'krpm', min: 0, max: 100 },
+      'shape_air1': { key: 'shape_air1', label: 'Shape Air 1', unit: 'L/min', min: 0, max: 800 },
+      'shape_air2': { key: 'shape_air2', label: 'Shape Air 2', unit: 'L/min', min: 0, max: 800 },
+      'shape_air': { key: 'shape_air', label: 'Shape Air', unit: 'L/min', min: 0, max: 800 },
+      'atom_air': { key: 'atom_air', label: 'Atom Air', unit: 'L/min', min: 0, max: 800 },
+      'fan_air': { key: 'fan_air', label: 'Fan Air', unit: 'L/min', min: 0, max: 800 },
+      'pressure': { key: 'pressure', label: 'Pressure', unit: 'psi', min: 0, max: 1000 },
+      'estat_KV': { key: 'estat_KV', label: 'E-Stat', unit: 'kV', min: 0, max: 100 }
+  };
+
+  return schemaKeys.map(key => richMap[key] || { key: key, label: key.replace('_', ' ').toUpperCase(), unit: '', min: 0, max: 10000 });
 })
 
 const clampFanucValue = (row, col) => {
@@ -487,7 +1067,7 @@ const fetchFanucPresets = async () => {
     try {
         const payload = {
             ...store.connectionConfig,
-            data_type: 'STRING', // Ignored by semantic parser
+            data_type: 'STRING',
             address: `${fanucForm.value.job_no},${fanucForm.value.color_no},${fanucForm.value.preset_type}`
         };
         const res = await api.readData(payload);
@@ -521,6 +1101,29 @@ const updateFanucPresetRow = async (index) => {
         }
     } catch (e) {
         toast.add({ severity: 'error', summary: 'Update Failed', detail: e.message, life: 5000 });
+    } finally {
+        loading.value = false;
+    }
+}
+
+const writeAllFanucPresets = async () => {
+    if (!fanucPresets.value) return;
+    loading.value = true;
+    try {
+        const payload = {
+            ...store.connectionConfig,
+            data_type: 'STRING',
+            address: `${fanucForm.value.job_no},${fanucForm.value.color_no},${fanucForm.value.preset_type}`,
+            value: fanucPresets.value
+        };
+        const res = await api.writeData(payload);
+        if (res.data.success) {
+            toast.add({ severity: 'success', summary: 'All Presets Written', detail: `All ${fanucPresets.value.length} presets synchronized`, life: 3000 });
+        } else {
+            toast.add({ severity: 'error', summary: 'Write Error', detail: res.data.message, life: 5000 });
+        }
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Write Failed', detail: e.message, life: 5000 });
     } finally {
         loading.value = false;
     }

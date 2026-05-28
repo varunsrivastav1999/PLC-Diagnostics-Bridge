@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: str = "*"
     
+    # Redis (cross-worker RPC queue — set to empty to disable)
+    REDIS_URL: str = "redis://redis:6379/0"
+
     # Connection
     CONNECTION_TIMEOUT_SEC: int = 5
     MAX_CONNECTIONS: int = 20

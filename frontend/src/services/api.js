@@ -52,4 +52,28 @@ export default {
     discoverSubnet(ip, timeout = 0.5) {
         return api.get('/plc/discover-subnet', { params: { ip, timeout }, timeout: 60000 });
     },
+    getFanucSchema() {
+        return api.get('/plc/fanuc/preset-schema');
+    },
+    getFanucColorSchema() {
+        return api.get('/plc/fanuc/color-schema');
+    },
+    getFanucColors(data, type) {
+        return api.post(`/plc/fanuc/colors/${type}`, data);
+    },
+    saveFanucColors(data, type) {
+        return api.put(`/plc/fanuc/colors/${type}`, data);
+    },
+    getFanucExtendedSchema() {
+        return api.get('/plc/fanuc/extended-schema');
+    },
+    getFanucExtended(data, type) {
+        return api.post(`/plc/fanuc/extended/${type}`, data);
+    },
+    saveFanucExtended(data, type) {
+        return api.put(`/plc/fanuc/extended/${type}`, data);
+    },
+    getLatency(plcType, ip, port) {
+        return api.get('/plc/latency', { params: { plc_type: plcType, ip, port } });
+    }
 };

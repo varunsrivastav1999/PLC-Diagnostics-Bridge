@@ -23,6 +23,7 @@ class ABBPLCService(BasePLCService):
             self.is_connected = self.client.connect()
             if not self.is_connected:
                 raise PLCConnectionError("ABB Modbus connection rejected")
+            self._start_worker(f"abb-{req.ip}:{port}")
             logger.info(f"ABB Modbus connected: {req.ip}:{port}")
             return True
         except PLCConnectionError:
@@ -33,6 +34,7 @@ class ABBPLCService(BasePLCService):
 
     def disconnect(self) -> bool:
         try:
+            self._stop_worker()
             if self.client:
                 self.client.close()
         except Exception:
@@ -69,7 +71,7 @@ class ABBPLCService(BasePLCService):
         except ValueError:
             return False
 
-    def read(self, req: PLCReadRequest) -> Any:
+    def _do_read(self, req: PLCReadRequest) -> Any:
         try:
             addr = self._parse_address(req.address)
             slave_id = 1
@@ -134,7 +136,7 @@ class ABBPLCService(BasePLCService):
         except Exception as e:
             raise PLCReadError(f"ABB read failed: {e}")
 
-    def write(self, req: PLCWriteRequest) -> bool:
+    def _do_write(self, req: PLCWriteRequest) -> bool:
         try:
             addr = self._parse_address(req.address)
             slave_id = 1

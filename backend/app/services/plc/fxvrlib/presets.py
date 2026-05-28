@@ -36,8 +36,9 @@ def get_presets(args: dict[str, Any]) -> list[dict[str, Any]]:
     color_no = int(args['color_no']) if args['color_no'] else 0
     preset_type = args['preset_type'] if args['preset_type'] else ''
 
-    if preset_type != LibraryConstants.PRESET_TYPE_BELL and preset_type != LibraryConstants.PRESET_TYPE_GUN:
-        msg = 'Preset type not defined. Need to supply preset_type equal to BELL or GUN'
+    if preset_type not in LibraryConstants.PRESET_NAME_TABLES:
+        supported = ', '.join(sorted(LibraryConstants.PRESET_NAME_TABLES.keys()))
+        msg = f'Preset type {preset_type!r} not defined. Supported types: {supported}'
         library_vars.get_logger().error(msg)
         raise RuntimeError(msg)
 
@@ -152,8 +153,9 @@ def set_presets(args: dict[str, Any]) -> bool:
     color_no = int(args["color_no"]) if args["color_no"] else 0
     preset_type = args['preset_type'] if args['preset_type'] else ''
 
-    if preset_type != LibraryConstants.PRESET_TYPE_BELL and preset_type != LibraryConstants.PRESET_TYPE_GUN:
-        msg = 'Preset type not defined. Need to supply preset_type equal to BELL or GUN'
+    if preset_type not in LibraryConstants.PRESET_NAME_TABLES:
+        supported = ', '.join(sorted(LibraryConstants.PRESET_NAME_TABLES.keys()))
+        msg = f'Preset type {preset_type!r} not defined. Supported types: {supported}'
         library_vars.get_logger().error(msg)
         raise RuntimeError(msg)
 

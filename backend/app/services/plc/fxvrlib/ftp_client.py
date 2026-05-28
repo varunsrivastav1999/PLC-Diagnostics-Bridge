@@ -46,7 +46,8 @@ class FtpClient():
         if ftp is None:
             raise RuntimeError('FTP client not connected')
         ftp.retrbinary(f"RETR {remote_file}", buffer.write)
-        content = buffer.getvalue().decode('ascii')
+        # BUGFIX: Use latin-1 instead of strict ascii to handle 0xc0 and other Fanuc extended characters
+        content = buffer.getvalue().decode('latin-1')
         duration = monotonic_ns() - start_time
         return content, duration
 

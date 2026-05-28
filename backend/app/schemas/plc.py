@@ -28,6 +28,7 @@ class PLCConnectRequest(BaseModel):
     rack: Optional[int] = 0
     slot: Optional[int] = 1
     cpu_type: Optional[str] = None
+    manual_type: Optional[str] = None
     
     model_config = ConfigDict(extra='ignore')
 
@@ -41,6 +42,7 @@ class PLCReadRequest(BaseModel):
     address: str
     bit_offset: Optional[int] = 0
     register_count: Optional[int] = 1
+    manual_type: Optional[str] = None
 
     model_config = ConfigDict(extra='ignore')
 

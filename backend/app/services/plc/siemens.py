@@ -22,6 +22,8 @@ class SiemensPLCService(BasePLCService):
             # snap7 3.0.0: connect(address, rack, slot, tcp_port=102)
             self.client.connect(req.ip, rack, slot, tcp_port=port)
             self.is_connected = self.client.get_connected()
+            if self.is_connected:
+                self._start_worker(f"siemens-{req.ip}:{port}")
             return self.is_connected
         except Exception as e:
             self.is_connected = False
@@ -29,6 +31,7 @@ class SiemensPLCService(BasePLCService):
 
     def disconnect(self) -> bool:
         try:
+            self._stop_worker()
             if self.is_connected:
                 self.client.disconnect()
                 self.is_connected = False
@@ -71,7 +74,7 @@ class SiemensPLCService(BasePLCService):
             return requested_bit_offset
         return address_bit_offset
 
-    def read(self, req: PLCReadRequest) -> Any:
+    def _do_read(self, req: PLCReadRequest) -> Any:
         try:
             db_number, dt_char, start, bit_offset = self._parse_address(req.address)
             self._validate_address_for_request(req, dt_char, bit_offset)
@@ -110,7 +113,7 @@ class SiemensPLCService(BasePLCService):
         except Exception as e:
             raise PLCReadError(f"Siemens read failed: {e}")
 
-    def write(self, req: PLCWriteRequest) -> bool:
+    def _do_write(self, req: PLCWriteRequest) -> bool:
         try:
             db_number, dt_char, start, bit_offset = self._parse_address(req.address)
             self._validate_address_for_request(req, dt_char, bit_offset)

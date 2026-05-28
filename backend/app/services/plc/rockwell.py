@@ -22,10 +22,10 @@ class RockwellPLCService(BasePLCService):
             if req.slot is not None:
                 self.client.ProcessorSlot = req.slot
 
-            # Verify by reading PLC time
             ret = self.client.GetPLCTime()
             if ret.Status == 'Success':
                 self.is_connected = True
+                self._start_worker(f"rockwell-{req.ip}:{self.client.Port}")
                 logger.info(f"Rockwell connected: {req.ip}:{req.port} slot={req.slot}")
                 return True
             else:
@@ -38,6 +38,7 @@ class RockwellPLCService(BasePLCService):
 
     def disconnect(self) -> bool:
         try:
+            self._stop_worker()
             if self.client:
                 self.client.Close()
         except Exception:
@@ -55,7 +56,7 @@ class RockwellPLCService(BasePLCService):
             self.is_connected = False
             return False
 
-    def read(self, req: PLCReadRequest) -> Any:
+    def _do_read(self, req: PLCReadRequest) -> Any:
         try:
             ret = self.client.Read(req.address)
             if ret.Status != 'Success':
@@ -77,7 +78,7 @@ class RockwellPLCService(BasePLCService):
         except Exception as e:
             raise PLCReadError(f"Rockwell read failed: {e}")
 
-    def write(self, req: PLCWriteRequest) -> bool:
+    def _do_write(self, req: PLCWriteRequest) -> bool:
         try:
             # Coerce value to correct Python type
             val = req.value

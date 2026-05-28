@@ -181,3 +181,125 @@ def discover_subnet(ip: str, timeout: float = 0.5):
     except Exception as e:
         logger.error(f"Subnet discovery failed: {e}")
         return _fail(f"Subnet discovery failed: {e}")
+
+# ──────────── Fanuc Schema ────────────
+
+@router.get("/fanuc/preset-schema")
+def get_fanuc_preset_schema():
+    """Get dynamic preset schema for Fanuc UI rendering."""
+    try:
+        from app.services.plc.fxvrlib.library_constants import LibraryConstants
+        return _ok("Preset schema retrieved", connected=False, schema=LibraryConstants.PRESET_NAME_TABLES)
+    except Exception as e:
+        logger.error(f"Failed to get Fanuc preset schema: {e}")
+        return _fail(f"Failed to get Fanuc preset schema: {e}")
+
+@router.get("/fanuc/color-schema")
+def get_fanuc_color_schema():
+    """Get dynamic color schema for Fanuc UI rendering."""
+    try:
+        from app.services.plc.fxvrlib.library_constants import LibraryConstants
+        return _ok("Color schema retrieved", connected=False, 
+                   setup_vars=LibraryConstants.COLOR_SETUP_VARS,
+                   cycle_vars=LibraryConstants.CYCLE_TIME_VARS,
+                   max_colors=LibraryConstants.MAX_COLORS)
+    except Exception as e:
+        logger.error(f"Failed to get Fanuc color schema: {e}")
+        return _fail(f"Failed to get Fanuc color schema: {e}")
+
+@router.post("/fanuc/colors/{color_type}")
+def get_fanuc_colors(req: PLCConnectRequest, color_type: str):
+    """Fetch color setup or cycle times."""
+    try:
+        from app.services.plc.fxvrlib.colors import get_color_setup, get_color_cycle_time
+        args = {'robot_ip': req.ip}
+        if color_type == 'setup':
+            data = get_color_setup(args)
+        elif color_type == 'cycle':
+            data = get_color_cycle_time(args)
+        else:
+            return _fail(f"Invalid color type: {color_type}")
+        return _ok(f"Colors {color_type} fetched", connected=True, value=data)
+    except Exception as e:
+        logger.error(f"Failed to fetch colors: {e}")
+        return _fail(f"Failed to fetch colors: {e}")
+
+@router.put("/fanuc/colors/{color_type}")
+def save_fanuc_colors(req: PLCWriteRequest, color_type: str):
+    """Write color setup back to the robot controller."""
+    try:
+        from app.services.plc.fxvrlib.colors import set_color_setup
+        if color_type != 'setup':
+            return _fail("Only 'setup' type supports write-back. Cycle times are read-only.")
+        args = {'robot_ip': req.ip, 'colors': req.value}
+        ok = set_color_setup(args)
+        if ok:
+            return _ok("Color setup saved to robot", connected=True)
+        return _fail("set_color_setup returned False")
+    except Exception as e:
+        logger.error(f"Failed to save colors: {e}")
+        return _fail(f"Failed to save colors: {e}")
+
+@router.get("/fanuc/extended-schema")
+def get_fanuc_extended_schema():
+    """Get dynamic schemas for Manual Settings and GNM/BSC UI rendering."""
+    try:
+        from app.services.plc.fxvrlib.library_constants import LibraryConstants
+        return _ok("Extended schema retrieved", connected=False, 
+                   manual_vars=LibraryConstants.MANUAL_SETTINGS_VARS,
+                   gnm_bsc_vars=LibraryConstants.GNM_BSC_VARS)
+    except Exception as e:
+        logger.error(f"Failed to get extended schema: {e}")
+        return _fail(f"Failed to get extended schema: {e}")
+
+@router.post("/fanuc/extended/{feature_type}")
+def get_fanuc_extended(req: PLCConnectRequest, feature_type: str):
+    """Fetch Manual Settings or GNM/BSC."""
+    try:
+        from app.services.plc.fxvrlib.extended_settings import get_manual_settings, get_gnm_bsc_settings
+        args = {'robot_ip': req.ip}
+        if req.manual_type:
+            args['manual_type'] = req.manual_type
+            
+        if feature_type == 'manual':
+            data = get_manual_settings(args)
+        elif feature_type == 'gnmbsc':
+            data = get_gnm_bsc_settings(args)
+        else:
+            return _fail(f"Invalid extended feature type: {feature_type}")
+        return _ok(f"Feature {feature_type} fetched", connected=True, value=data)
+    except Exception as e:
+        logger.error(f"Failed to fetch {feature_type}: {e}")
+        return _fail(f"Failed to fetch {feature_type}: {e}")
+
+@router.put("/fanuc/extended/{feature_type}")
+def save_fanuc_extended(req: PLCWriteRequest, feature_type: str):
+    """Write extended settings back to the robot controller."""
+    try:
+        from app.services.plc.fxvrlib.extended_settings import set_manual_settings, set_gnm_bsc_settings
+        args = {'robot_ip': req.ip, 'data': req.value}
+        if feature_type == 'manual':
+            ok = set_manual_settings(args)
+        elif feature_type == 'gnmbsc':
+            ok = set_gnm_bsc_settings(args)
+        else:
+            return _fail(f"Invalid extended feature type: {feature_type}")
+            
+        if ok:
+            return _ok(f"{feature_type} saved to robot", connected=True)
+        return _fail("set returned False")
+    except Exception as e:
+        logger.error(f"Failed to save {feature_type}: {e}")
+        return _fail(f"Failed to save {feature_type}: {e}")
+
+@router.get("/latency")
+def get_latency(plc_type: str, ip: str, port: int = None):
+    """Get last RPC operation latency for a connection."""
+    try:
+        service = manager.get_service(
+            PLCConnectRequest(plc_type=plc_type, ip=ip, port=port),
+            auto_connect=False
+        )
+        return _ok("Latency retrieved", connected=True, latency_ms=service.get_latency())
+    except Exception:
+        return _ok("No active connection", connected=False, latency_ms=0)
