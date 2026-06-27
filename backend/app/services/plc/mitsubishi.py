@@ -596,7 +596,6 @@ class MitsubishiPLCService(BasePLCService):
 
             elif req.data_type == DataType.WORD_ARRAY:
                 reg_count = getattr(req, 'register_count', 10) or 10
-                reg_count = min(reg_count, 32768)
                 
                 results = []
                 current_device = headdevice
@@ -614,7 +613,6 @@ class MitsubishiPLCService(BasePLCService):
 
             elif req.data_type == DataType.BIT_ARRAY:
                 reg_count = getattr(req, 'register_count', 10) or 10
-                reg_count = min(reg_count, 32768)
                 
                 results = []
                 current_device = headdevice

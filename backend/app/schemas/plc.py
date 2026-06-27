@@ -65,7 +65,7 @@ class PLCReadRequest(BaseModel):
             return 1
         try:
             val = int(v)
-            return max(1, min(val, 32768))
+            return max(1, min(val, 999999))
         except (ValueError, TypeError):
             return 1
 
