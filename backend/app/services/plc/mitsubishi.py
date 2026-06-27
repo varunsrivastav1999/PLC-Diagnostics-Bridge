@@ -411,7 +411,7 @@ class MitsubishiPLCService(BasePLCService):
 
     # Valid Mitsubishi device prefixes (word + bit)
     VALID_DEVICES_WORD = {'D', 'W', 'R', 'ZR', 'TN', 'CN', 'SD'}
-    VALID_DEVICES_BIT = {'M', 'X', 'Y', 'B', 'L', 'SM', 'TS', 'CS'}
+    VALID_DEVICES_BIT = {'M', 'X', 'Y', 'B', 'L', 'SM', 'TS', 'CS', 'F'}
     VALID_DEVICES = VALID_DEVICES_WORD | VALID_DEVICES_BIT
 
     def _words_to_bytes(self, words: list[int]) -> bytes:
@@ -452,6 +452,31 @@ class MitsubishiPLCService(BasePLCService):
         return words
 
     def _normalize_headdevice(self, address: str) -> str:
+        address = address.strip().upper()
+        if not address:
+            raise ValueError("Address cannot be empty")
+        return address
+
+    def _advance_headdevice(self, headdevice: str, offset: int) -> str:
+        import re
+        match = re.match(r"^([a-zA-Z\*]+)([a-fA-F0-9]+)$", headdevice)
+        if not match:
+            return headdevice # fallback
+        
+        prefix = match.group(1).upper()
+        num_str = match.group(2)
+        
+        # Hex based devices in Mitsubishi
+        is_hex = prefix in ("X", "Y", "B", "W", "SW", "DX", "DY")
+        base = 16 if is_hex else 10
+        
+        num = int(num_str, base)
+        new_num = num + offset
+        
+        if is_hex:
+            return f"{prefix}{new_num:X}"
+        else:
+            return f"{prefix}{new_num}"
         """
         Normalize Mitsubishi device names with proper device prefix validation.
         Supports: D, W, R, ZR, M, X, Y, B, L, SM, TN, CN, TS, CS, SD
@@ -569,6 +594,42 @@ class MitsubishiPLCService(BasePLCService):
                     return text_be
                 return text_le
 
+            elif req.data_type == DataType.WORD_ARRAY:
+                reg_count = getattr(req, 'register_count', 10) or 10
+                reg_count = min(reg_count, 32768)
+                
+                results = []
+                current_device = headdevice
+                remaining = reg_count
+                
+                while remaining > 0:
+                    chunk = min(remaining, 960)
+                    word_data = self.client.batchread_wordunits(current_device, chunk)
+                    results.extend(word_data)
+                    remaining -= chunk
+                    if remaining > 0:
+                        current_device = self._advance_headdevice(current_device, chunk)
+                        
+                return results
+
+            elif req.data_type == DataType.BIT_ARRAY:
+                reg_count = getattr(req, 'register_count', 10) or 10
+                reg_count = min(reg_count, 32768)
+                
+                results = []
+                current_device = headdevice
+                remaining = reg_count
+                
+                while remaining > 0:
+                    chunk = min(remaining, 7168)
+                    bit_data = self.client.batchread_bitunits(current_device, chunk)
+                    results.extend(bit_data)
+                    remaining -= chunk
+                    if remaining > 0:
+                        current_device = self._advance_headdevice(current_device, chunk)
+                        
+                return results
+
             else:
                 word_data = self.client.batchread_wordunits(headdevice, 1)
                 return word_data[0] if word_data else 0
@@ -608,6 +669,16 @@ class MitsubishiPLCService(BasePLCService):
                 encoded = encoded.ljust(byte_len, b'\x00')
                 words = self._bytes_to_words(encoded)
                 self.client.batchwrite_wordunits(headdevice, words)
+
+            elif req.data_type == DataType.WORD_ARRAY:
+                if not isinstance(req.value, list):
+                    raise ValueError("WORD_ARRAY requires a list of integers")
+                self.client.batchwrite_wordunits(headdevice, [int(v) & 0xFFFF for v in req.value])
+
+            elif req.data_type == DataType.BIT_ARRAY:
+                if not isinstance(req.value, list):
+                    raise ValueError("BIT_ARRAY requires a list of integers (0 or 1)")
+                self.client.batchwrite_bitunits(headdevice, [int(bool(v)) for v in req.value])
 
             else:
                 self.client.batchwrite_wordunits(headdevice, [int(req.value)])

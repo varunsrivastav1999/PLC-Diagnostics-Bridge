@@ -14,6 +14,7 @@ import Dropdown from 'primevue/dropdown'
 import Card from 'primevue/card'
 import Toast from 'primevue/toast'
 import Checkbox from 'primevue/checkbox'
+import VirtualScroller from 'primevue/virtualscroller'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -42,6 +43,7 @@ app.component('Dropdown', Dropdown)
 app.component('Card', Card)
 app.component('Toast', Toast)
 app.component('Checkbox', Checkbox)
+app.component('VirtualScroller', VirtualScroller)
 
 app.mount('#app')
 

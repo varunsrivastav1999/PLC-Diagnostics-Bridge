@@ -73,6 +73,11 @@
                       @click="operation = 'write'">
                 <i class="pi pi-pencil" style="font-size: 10px;"></i> WRITE
               </button>
+              <button v-if="store.connectionConfig.plc_type === 'mitsubishi'" class="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-[10px] font-black tracking-widest uppercase transition-all duration-200" 
+                      :class="operation === 'range_read' ? 'bg-fuchsia-500/15 text-fuchsia-400 border border-fuchsia-500/30 shadow-[0_0_8px_rgba(217,70,239,0.1)]' : 'text-slate-500 border border-transparent hover:text-slate-400'" 
+                      @click="operation = 'range_read'">
+                <i class="pi pi-table" style="font-size: 10px;"></i> TAG READ
+              </button>
             </div>
           </div>
         </div>
@@ -83,7 +88,7 @@
         <!-- Left: Controls -->
         <form @submit.prevent="submitOperation" class="flex flex-col gap-4 w-full lg:w-[42%] shrink-0 overflow-y-auto">
           <!-- Data type & bit offset & register count -->
-          <div class="grid gap-3" :class="showExtraField ? 'grid-cols-2' : 'grid-cols-1'">
+          <div v-if="operation !== 'range_read'" class="grid gap-3" :class="showExtraField ? 'grid-cols-2' : 'grid-cols-1'">
             <div class="flex flex-col gap-1">
               <label class="text-[10px] font-black text-slate-500 tracking-[0.15em] uppercase">Data Type</label>
               <Dropdown v-model="form.data_type" :options="dataTypes" class="w-full text-xs" :disabled="!store.isConnected" @change="onDataTypeChange" />
@@ -100,7 +105,7 @@
           </div>
 
           <!-- Address -->
-          <div class="flex flex-col gap-1">
+          <div v-if="operation !== 'range_read'" class="flex flex-col gap-1">
             <label class="text-[10px] font-black tracking-[0.15em] uppercase" :class="operation === 'read' ? 'text-cyan-500' : 'text-amber-500'">Address / Tag</label>
             <InputText v-model="form.address" :placeholder="exampleAddress" class="w-full font-mono text-sm tracking-wider" :disabled="!store.isConnected" />
             <div class="flex items-center gap-1.5 mt-0.5">
@@ -136,6 +141,24 @@
             </template>
           </div>
           
+          <!-- Range Read Controls -->
+          <div v-if="operation === 'range_read'" class="flex flex-col gap-4 animate-fadein">
+            <div class="flex flex-col gap-4">
+              <div class="flex flex-col gap-1">
+                <label class="text-[10px] font-black text-fuchsia-500 tracking-[0.15em] uppercase">Device Prefix</label>
+                <Dropdown v-model="rangeForm.prefix" :options="['D', 'W', 'R', 'ZR', 'M', 'X', 'Y', 'L', 'F']" class="w-full text-xs" :disabled="!store.isConnected" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-[10px] font-black text-fuchsia-500 tracking-[0.15em] uppercase">Start Addr</label>
+                <InputText type="number" v-model.number="rangeForm.start" class="font-mono text-xs w-full" :disabled="!store.isConnected" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-[10px] font-black text-fuchsia-500 tracking-[0.15em] uppercase">Count</label>
+                <InputText type="number" v-model.number="rangeForm.count" class="font-mono text-xs w-full" :disabled="!store.isConnected" />
+              </div>
+            </div>
+          </div>
+
           <!-- Polling control for read -->
           <div v-else-if="operation === 'read'" class="flex items-center gap-3 p-3 border border-slate-800/50 rounded-xl bg-slate-950/30">
              <Checkbox v-model="isPollingLocal" :binary="true" @change="togglePolling" inputId="poll" :disabled="!store.isConnected" />
@@ -146,22 +169,22 @@
              </div>
           </div>
 
-          <!-- Execute button -->
+                    <!-- Execute button -->
           <Button :type="isPollingLocal ? 'button' : 'submit'" 
-                  :label="operation === 'read' ? 'READ' : 'WRITE'" 
-                  :icon="operation === 'read' ? 'pi pi-download' : 'pi pi-upload'" 
-                  :class="operation === 'read' ? 'bg-cyan-600 hover:bg-cyan-500 border-none shadow-[0_0_12px_rgba(8,145,178,0.25)] text-white' : 'bg-amber-600 hover:bg-amber-500 border-none shadow-[0_0_12px_rgba(217,119,6,0.25)] text-white'"
+                  :label="operation === 'read' ? 'READ' : operation === 'range_read' ? 'READ RANGE' : 'WRITE'" 
+                  :icon="operation === 'read' || operation === 'range_read' ? 'pi pi-download' : 'pi pi-upload'" 
+                  :class="operation === 'read' ? 'bg-cyan-600 hover:bg-cyan-500 border-none shadow-[0_0_12px_rgba(8,145,178,0.25)] text-white' : operation === 'range_read' ? 'bg-fuchsia-600 hover:bg-fuchsia-500 border-none shadow-[0_0_12px_rgba(217,70,239,0.25)] text-white' : 'bg-amber-600 hover:bg-amber-500 border-none shadow-[0_0_12px_rgba(217,119,6,0.25)] text-white'"
                   class="w-full font-black tracking-[0.15em] text-xs py-3" 
                   :disabled="!store.isConnected || (isPollingLocal && operation === 'read')" 
                   :loading="loading" />
         </form>
 
         <!-- Right: Display Terminal -->
-        <div class="flex-1 flex items-center justify-center p-6 bg-slate-950/60 rounded-2xl border border-slate-800/40 relative overflow-auto min-h-[250px]">
+        <div class="flex-1 flex flex-col p-6 bg-slate-950/60 rounded-2xl border border-slate-800/40 relative overflow-hidden min-h-[250px]">
            <!-- Grid decoration -->
            <div class="absolute inset-0 opacity-[0.04]" style="background-image: linear-gradient(#475569 1px, transparent 1px), linear-gradient(90deg, #475569 1px, transparent 1px); background-size: 24px 24px;"></div>
            
-           <div class="relative z-10 w-full h-full flex flex-col items-center justify-center">
+           <div class="relative z-10 w-full flex-1 flex flex-col items-center justify-center min-h-0">
               <!-- READ display -->
               <div v-if="operation === 'read'" class="w-full h-full flex flex-col justify-center items-center gap-4">
                   <div class="flex items-center gap-2">
@@ -187,7 +210,7 @@
               </div>
               
               <!-- WRITE display -->
-              <div v-else class="w-full h-full flex flex-col justify-center gap-6">
+              <div v-else-if="operation === 'write'" class="w-full h-full flex flex-col justify-center gap-6">
                   <div class="flex items-center gap-2">
                       <div class="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_6px_#f59e0b]"></div>
                       <span class="text-[9px] font-black tracking-[0.3em] text-amber-600 uppercase">Payload Preview</span>
@@ -201,6 +224,45 @@
                       <div class="border-l-2 border-amber-500/30 pl-4 py-1">
                           <span class="block text-[9px] font-black text-amber-500/50 tracking-[0.2em] uppercase mb-1">Value</span>
                           <span class="font-mono text-3xl lg:text-4xl text-amber-400 tracking-wider font-bold" style="font-family: 'JetBrains Mono', monospace;">{{ displayWriteVal }}</span>
+                      </div>
+                  </div>
+              </div>
+              <!-- RANGE READ display -->
+              <div v-else-if="operation === 'range_read'" class="w-full h-full flex flex-col min-h-0">
+                 <div class="flex items-center gap-2 mb-4 self-start shrink-0">
+                      <div class="h-1.5 w-1.5 rounded-full bg-fuchsia-500 shadow-[0_0_6px_#d946ef]"></div>
+                      <span class="text-[9px] font-black tracking-[0.3em] text-fuchsia-600 uppercase">Tags Browser</span>
+                  </div>
+                  
+                  <div class="flex-1 w-full flex flex-col bg-black/40 border border-slate-800 rounded-xl min-h-0 overflow-hidden">
+                      <!-- Static Header -->
+                      <div v-if="rangeResults.length > 0" class="flex bg-slate-900 border-b border-slate-700 w-full shrink-0 pr-3">
+                          <div class="px-4 py-2 text-[9px] font-black text-slate-400 tracking-widest uppercase border-r border-slate-800 w-24 shrink-0 flex items-center">Address</div>
+                          <div class="flex-1 px-4 py-2 text-[9px] font-black text-fuchsia-400 tracking-widest uppercase border-r border-slate-800 flex items-center">Value (INT/BOOL)</div>
+                          <div v-if="!rangeResults[0]?.isBit" class="px-4 py-2 text-[9px] font-black text-cyan-400 tracking-widest uppercase border-r border-slate-800 w-24 shrink-0 flex items-center">HEX</div>
+                          <div v-if="!rangeResults[0]?.isBit" class="px-4 py-2 text-[9px] font-black text-emerald-400 tracking-widest uppercase border-r border-slate-800 w-24 shrink-0 flex items-center">ASCII</div>
+                          <div class="px-4 py-2 text-[9px] font-black text-slate-400 tracking-widest uppercase w-32 text-center shrink-0 flex items-center justify-center">Action</div>
+                      </div>
+                      
+                      <!-- Virtual Body -->
+                      <VirtualScroller v-if="rangeResults.length > 0" :items="rangeResults" :itemSize="48" class="flex-1 w-full custom-scroll">
+                          <template #item="{ item, options }">
+                              <div class="flex border-b border-slate-800/50 hover:bg-fuchsia-900/10 h-[48px] items-center" :class="{ 'bg-slate-900/30': options.even }">
+                                  <div class="w-24 px-4 border-r border-slate-800/50 text-xs font-mono font-bold text-slate-300 h-full flex items-center shrink-0">{{ item.addr }}</div>
+                                  <div class="flex-1 px-4 border-r border-slate-800/50 h-full flex items-center">
+                                     <InputText v-model="item.val" class="w-full !h-8 !py-1 !px-2 text-sm font-mono bg-slate-900/50 border-slate-700/50 focus:border-fuchsia-500 text-fuchsia-100" />
+                                  </div>
+                                  <div v-if="!item.isBit" class="w-24 px-4 border-r border-slate-800/50 text-xs font-mono font-bold text-cyan-500/70 h-full flex items-center shrink-0">{{ item.hexVal }}</div>
+                                  <div v-if="!item.isBit" class="w-24 px-4 border-r border-slate-800/50 text-xs font-mono font-bold text-emerald-500/70 h-full flex items-center shrink-0">{{ item.asciiVal }}</div>
+                                  <div class="w-32 px-4 flex items-center justify-center shrink-0 h-full">
+                                     <Button @click="writeRangeItem(item)" icon="pi pi-send" class="!h-8 !w-8 bg-slate-800 hover:bg-amber-500 text-slate-400 hover:text-black border-none" v-tooltip.left="'Write'" />
+                                  </div>
+                              </div>
+                          </template>
+                      </VirtualScroller>
+
+                      <div v-else class="flex flex-1 items-center justify-center">
+                          <span class="text-[10px] font-black text-slate-600 tracking-widest uppercase">No Data</span>
                       </div>
                   </div>
               </div>
@@ -591,6 +653,15 @@ const form = ref({
   register_count: 10,
   write_val: ''
 })
+
+const rangeForm = ref({
+  prefix: 'D',
+  start: 0,
+  count: 10
+})
+
+const rangeResults = ref([])
+
 
 // Fanuc specific state
 const fanucMode = ref('pendant') // 'pendant', 'diagnostics', 'colors'
@@ -1130,12 +1201,85 @@ const writeAllFanucPresets = async () => {
 }
 
 const submitOperation = () => {
+    if (operation.value === 'range_read') {
+        performRangeRead();
+        return;
+    }
     if (!form.value.address) {
         toast.add({ severity: 'warn', summary: 'Required', detail: 'Enter an address', life: 3000 });
         return;
     }
     if (operation.value === 'read') performRead();
     else performWrite();
+}
+
+
+const performRangeRead = async () => {
+    loading.value = true;
+    try {
+        const isBit = ['M', 'X', 'Y', 'B', 'L', 'F', 'SM', 'TS', 'CS'].includes(rangeForm.value.prefix);
+        const payload = {
+            ...store.connectionConfig,
+            data_type: isBit ? 'BIT_ARRAY' : 'WORD_ARRAY',
+            address: `${rangeForm.value.prefix}${rangeForm.value.start}`,
+            register_count: rangeForm.value.count || 10
+        };
+        const res = await api.readData(payload);
+        if (res.data.success) {
+            const arr = res.data.value;
+            rangeResults.value = arr.map((v, i) => {
+                const isWord = !isBit;
+                let hexVal = '';
+                let asciiVal = '';
+                if (isWord) {
+                    const w = Number(v) & 0xFFFF;
+                    hexVal = '0x' + w.toString(16).toUpperCase().padStart(4, '0');
+                    const low = w & 0xFF;
+                    const high = (w >> 8) & 0xFF;
+                    const c1 = (low >= 32 && low <= 126) ? String.fromCharCode(low) : '.';
+                    const c2 = (high >= 32 && high <= 126) ? String.fromCharCode(high) : '.';
+                    asciiVal = c1 + c2;
+                }
+                return {
+                    addr: `${rangeForm.value.prefix}${rangeForm.value.start + i}`,
+                    val: String(v),
+                    hexVal,
+                    asciiVal,
+                    isBit
+                }
+            });
+            toast.add({ severity: 'success', summary: 'Read OK', detail: `Fetched ${arr.length} tags`, life: 2000 });
+        } else {
+            toast.add({ severity: 'error', summary: 'Read Error', detail: res.data.message, life: 5000 });
+        }
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Read Failed', detail: e.message, life: 5000 });
+    } finally {
+        loading.value = false;
+    }
+}
+
+const writeRangeItem = async (item) => {
+    loading.value = true;
+    try {
+        const isBit = ['M', 'X', 'Y', 'B', 'L', 'F', 'SM', 'TS', 'CS'].includes(rangeForm.value.prefix);
+        const payload = {
+            ...store.connectionConfig,
+            data_type: isBit ? 'BOOL' : 'INT',
+            address: item.addr,
+            value: isBit ? (item.val === '1' || item.val.toLowerCase() === 'true') : Number(item.val)
+        };
+        const res = await api.writeData(payload);
+        if (res.data.success) {
+            toast.add({ severity: 'success', summary: 'Write OK', detail: `${item.addr} updated`, life: 2000 });
+        } else {
+            toast.add({ severity: 'error', summary: 'Write Error', detail: res.data.message, life: 5000 });
+        }
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Write Failed', detail: e.message, life: 5000 });
+    } finally {
+        loading.value = false;
+    }
 }
 
 const togglePolling = () => {

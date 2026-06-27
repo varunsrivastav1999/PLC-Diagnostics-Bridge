@@ -20,6 +20,8 @@ class DataType(str, Enum):
     REAL = "REAL"
     FLOAT = "FLOAT"
     STRING = "STRING"
+    WORD_ARRAY = "WORD_ARRAY"
+    BIT_ARRAY = "BIT_ARRAY"
 
 class PLCConnectRequest(BaseModel):
     plc_type: PLCType
@@ -63,7 +65,7 @@ class PLCReadRequest(BaseModel):
             return 1
         try:
             val = int(v)
-            return max(1, min(val, 100))
+            return max(1, min(val, 32768))
         except (ValueError, TypeError):
             return 1
 
