@@ -9,7 +9,7 @@ import queue
 import logging
 from enum import Enum
 from app.schemas.plc import PLCConnectRequest, PLCReadRequest, PLCWriteRequest, DataType
-from app.core.exceptions import PLCConnectionError, PLCReadError, PLCWriteError
+from app.core.exceptions import PLCConnectionError, PLCReadError, PLCWriteError, PLCTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +31,13 @@ def _get_redis():
             logger.info("Redis disabled (REDIS_URL empty)")
             return None
         import redis as redis_lib
-        _redis_client = redis_lib.Redis.from_url(url, decode_responses=True, socket_timeout=2)
+        _redis_client = redis_lib.Redis.from_url(
+            url, decode_responses=True, socket_timeout=1.0, socket_connect_timeout=0.5
+        )
         _redis_client.ping()
         logger.info(f"Redis connected: {url}")
     except Exception as e:
-        logger.warning(f"Redis unavailable, falling back to threading queue: {e}")
+        logger.info(f"Redis not available, using in-memory threading queue ({e})")
         _redis_client = None
     return _redis_client
 
@@ -113,7 +115,9 @@ class BasePLCService(ABC):
                 break
             t0 = time.monotonic()
             try:
-                if rpc.op == _OpType.READ:
+                if isinstance(rpc.req, _TestReq):
+                    rpc.result = self._do_test_connection()
+                elif rpc.op == _OpType.READ:
                     rpc.result = self._do_read(rpc.req)
                 elif rpc.op == _OpType.WRITE:
                     rpc.result = self._do_write(rpc.req)
@@ -172,8 +176,8 @@ class BasePLCService(ABC):
 
             # Wait for the worker to execute our request
             if not rpc.done.wait(timeout=timeout):
-                err_msg = "Operation timed out"
-                raise PLCReadError(err_msg) if op == _OpType.READ else PLCWriteError(err_msg)
+                err_msg = f"{op.value.capitalize()} operation timed out after {timeout}s"
+                raise PLCTimeoutError(err_msg)
 
             if rpc.error is not None:
                 raise rpc.error
@@ -255,6 +259,10 @@ class BasePLCService(ABC):
 
     def write(self, req: PLCWriteRequest) -> bool:
         return self._enqueue(_OpType.WRITE, req)
+
+    def _do_test_connection(self) -> bool:
+        """Internal probe executed inside the worker thread."""
+        return self.is_connected
 
     @abstractmethod
     def _do_read(self, req: Any) -> Any:

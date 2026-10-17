@@ -57,14 +57,12 @@ class TestPortCheckAPI:
 
     def test_check_port_endpoint_siemens_free(self, test_client):
         """Port closed in low-level check is interpreted as free from UI mapping"""
-        with patch('socket.socket') as mock_socket:
-            mock_sock_instance = MagicMock()
-            mock_socket.return_value = mock_sock_instance
-            mock_sock_instance.connect_ex.return_value = 1
-
+        from app.services.plc.base import BasePLCService
+        fake_result = {'busy': False, 'status': 'closed', 'message': 'Port 102 is closed or filtered', 'response_time': 5.0}
+        with patch.object(BasePLCService, 'check_port_busy', return_value=fake_result):
             payload = {
                 "plc_type": "siemens",
-                "ip": "192.168.1.100",
+                "ip": "192.169.4.153",
                 "port": 102
             }
             response = test_client.post("/api/plc/check-port", json=payload)
@@ -77,15 +75,13 @@ class TestPortCheckAPI:
 
     def test_check_port_endpoint_mitsubishi_busy(self, test_client):
         """Port open in low-level check is interpreted as busy from UI mapping"""
-        with patch('socket.socket') as mock_socket:
-            mock_sock_instance = MagicMock()
-            mock_socket.return_value = mock_sock_instance
-            mock_sock_instance.connect_ex.return_value = 0
-
+        from app.services.plc.base import BasePLCService
+        fake_result = {'busy': True, 'status': 'open', 'message': 'Port 5007 is open and accepting connections', 'response_time': 3.0}
+        with patch.object(BasePLCService, 'check_port_busy', return_value=fake_result):
             payload = {
                 "plc_type": "mitsubishi",
-                "ip": "192.168.1.100",
-                "port": 5000
+                "ip": "192.169.4.152",
+                "port": 5007
             }
             response = test_client.post("/api/plc/check-port", json=payload)
 

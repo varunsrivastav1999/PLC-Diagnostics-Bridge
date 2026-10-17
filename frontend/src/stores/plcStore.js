@@ -22,6 +22,12 @@ export const usePlcStore = defineStore('plc', {
         portStatus: 'unknown',
         portMessage: '',
         responseTime: null,
+        autoDetectingPort: false,
+        autoConnecting: false,
+        autoLinkEnabled: true,
+        autoLinkStatus: 'idle',
+        autoLinkMessage: 'Ready: Auto-detects MC port & connects on completed IP',
+        lastDetectedPort: null,
     }),
 
     getters: {
@@ -83,11 +89,74 @@ export const usePlcStore = defineStore('plc', {
                 const res = await api.disconnect(this.connectionConfig);
                 this.isConnected = false;
                 this.stopPolling();
+                if (this.autoLinkStatus === 'connected') {
+                    this.autoLinkStatus = 'idle';
+                    this.autoLinkMessage = 'Disconnected. Ready to auto-link on IP change.';
+                }
                 return res.data;
             } catch (err) {
                 this.isConnected = false;
                 this.stopPolling();
                 return { success: false, message: err.message };
+            }
+        },
+
+        resetAutoLink(message = 'Session refreshed. Ready for IP.') {
+            this.autoDetectingPort = false;
+            this.autoConnecting = false;
+            this.autoLinkStatus = 'refreshing';
+            this.autoLinkMessage = message;
+        },
+
+        async autoDiscoverAndConnect(targetIp) {
+            const ip = targetIp || this.connectionConfig.ip;
+            if (!ip) return { success: false, message: 'No target IP provided' };
+
+            this.autoDetectingPort = true;
+            this.autoLinkStatus = 'detecting';
+            this.autoLinkMessage = `Probing MC Protocol ports on ${ip}...`;
+
+            try {
+                const res = await api.discoverPorts(ip);
+                const data = res.data;
+                let portToUse = 5000;
+
+                if (data && data.success && data.recommended_port) {
+                    portToUse = data.recommended_port;
+                    this.connectionConfig.port = portToUse;
+                    this.lastDetectedPort = portToUse;
+                    const count = data.discovery?.mc_ports?.length || 1;
+                    this.autoLinkMessage = `✓ Detected MC Port ${portToUse} (${count} active). Connecting...`;
+                } else {
+                    this.connectionConfig.port = portToUse;
+                    this.lastDetectedPort = portToUse;
+                    this.autoLinkMessage = `MC scan completed (using standard port ${portToUse}). Connecting...`;
+                }
+
+                // Proceed to connection process
+                this.autoDetectingPort = false;
+                this.autoConnecting = true;
+                this.autoLinkStatus = 'connecting';
+
+                const connResult = await this.connectPlc();
+                if (connResult.success) {
+                    this.autoLinkStatus = 'connected';
+                    this.autoLinkMessage = `✓ Linked to Mitsubishi MC at ${ip}:${this.connectionConfig.port}`;
+                    return { success: true, port: this.connectionConfig.port, message: this.autoLinkMessage };
+                } else {
+                    this.autoLinkStatus = 'failed';
+                    this.autoLinkMessage = `Port ${this.connectionConfig.port} detected, but connection failed: ${connResult.message}`;
+                    return { success: false, port: this.connectionConfig.port, message: this.autoLinkMessage };
+                }
+            } catch (err) {
+                this.autoDetectingPort = false;
+                this.autoConnecting = false;
+                this.autoLinkStatus = 'failed';
+                this.autoLinkMessage = `MC Discovery failed on ${ip}: ${err.message}`;
+                return { success: false, message: err.message };
+            } finally {
+                this.autoDetectingPort = false;
+                this.autoConnecting = false;
             }
         },
 

@@ -94,10 +94,10 @@ class PLCManager:
         connect_req = self._to_connection_params(req)
         default_ports = {
             'siemens': 102, 'mitsubishi': 5000, 'rockwell': 44818,
-            'abb': 502, 'fanuc': 21,
+            'abb': 502, 'fanuc': 21, 'opcua': 4840,
         }
         plc_type_val = getattr(connect_req.plc_type, 'value', str(connect_req.plc_type))
-        port = connect_req.port if connect_req.port is not None else default_ports.get(plc_type_val, 5000)
+        port = connect_req.port if connect_req.port is not None else default_ports.get(plc_type_val, 4840 if plc_type_val == 'opcua' else 5000)
         service = get_plc_service(connect_req.plc_type)
         return service.check_port_busy(connect_req.ip, port)
 

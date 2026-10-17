@@ -10,19 +10,21 @@ class DummyPLCService(BasePLCService):
 
     def connect(self, req) -> bool:
         self.is_connected = True
+        self._start_worker(f"dummy-{req.ip}:{getattr(req, 'port', 1234)}")
         return True
 
     def disconnect(self) -> bool:
+        self._stop_worker()
         self.is_connected = False
         return True
 
     def test_connection(self) -> bool:
         return self.is_connected
 
-    def read(self, req):
+    def _do_read(self, req):
         return {"address": req.address, "data_type": getattr(req.data_type, "value", req.data_type)}
 
-    def write(self, req) -> bool:
+    def _do_write(self, req) -> bool:
         self.last_write = (req.address, req.value)
         return True
 

@@ -110,6 +110,8 @@ def test_mock_siemens_rejects_word_address_for_bool():
 
     service = SiemensPLCService()
     service.client = Mock()
+    service.is_connected = True
+    service._start_worker("test-siemens-reject")
 
     class MockRequest:
         def __init__(self, data_type, address, bit_offset=0):
@@ -117,8 +119,11 @@ def test_mock_siemens_rejects_word_address_for_bool():
             self.address = address
             self.bit_offset = bit_offset
 
-    with pytest.raises(PLCReadError):
-        service.read(MockRequest(DataType.BOOL, "DB1.DBW0", 0))
+    try:
+        with pytest.raises(PLCReadError):
+            service.read(MockRequest(DataType.BOOL, "DB1.DBW0", 0))
+    finally:
+        service.disconnect()
 
 def test_mock_siemens_connect_read_write():
     """Test Siemens PLC service with mocked snap7 client"""
@@ -177,6 +182,7 @@ def test_mock_siemens_connect_read_write():
         
         read_req = MockRequest(DataType.STRING, "DB1.DBD12", 0)
         assert service.read(read_req) == "Test"
+        service.disconnect()
 
 def test_mock_mitsubishi_zr_read_write():
     from app.services.plc.mitsubishi import MitsubishiPLCService
@@ -184,6 +190,8 @@ def test_mock_mitsubishi_zr_read_write():
 
     service = MitsubishiPLCService()
     service.client = Mock()
+    service.is_connected = True
+    service._start_worker("test-mitsubishi-zr")
     service.client.batchread_wordunits.return_value = [321]
 
     class MockReadRequest:
@@ -197,11 +205,14 @@ def test_mock_mitsubishi_zr_read_write():
             super().__init__(data_type, address, register_count)
             self.value = value
 
-    assert service.read(MockReadRequest(DataType.INT, "zr100")) == 321
-    service.client.batchread_wordunits.assert_called_once_with("ZR100", 1)
+    try:
+        assert service.read(MockReadRequest(DataType.INT, "zr100")) == 321
+        service.client.batchread_wordunits.assert_called_once_with("ZR100", 1)
 
-    assert service.write(MockWriteRequest(DataType.INT, "zr100", 123)) is True
-    service.client.batchwrite_wordunits.assert_called_once_with("ZR100", [123])
+        assert service.write(MockWriteRequest(DataType.INT, "zr100", 123)) is True
+        service.client.batchwrite_wordunits.assert_called_once_with("ZR100", [123])
+    finally:
+        service.disconnect()
 
 def test_mock_fanuc_rejects_unsupported_preset_type():
     from app.services.plc.fanuc import FanucPLCService

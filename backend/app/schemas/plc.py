@@ -8,6 +8,7 @@ class PLCType(str, Enum):
     rockwell = "rockwell"
     abb = "abb"
     fanuc = "fanuc"
+    opcua = "opcua"
 
 class OperationType(str, Enum):
     read = "read"

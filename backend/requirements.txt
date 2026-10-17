@@ -1,5 +1,5 @@
 # PLC Communication API - Production Requirements
-# Python >= 3.9 required
+# Python >= 3.10 required
 
 # Web Framework
 fastapi==0.115.0
@@ -14,6 +14,7 @@ python-snap7==2.0.0        # Siemens S7 PLC communication
 pymcprotocol==0.3.0        # Mitsubishi MC Protocol
 pylogix==1.1.5             # Rockwell/Allen-Bradley EtherNet/IP
 pymodbus==3.12.1           # ABB Modbus TCP (security fix: upgraded from 3.7.0)
+asyncua==2.1.0             # OPC-UA protocol client
 
 # Testing & Development
 pytest==8.3.0

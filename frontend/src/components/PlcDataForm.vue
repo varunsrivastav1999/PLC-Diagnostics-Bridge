@@ -91,15 +91,15 @@
           <div v-if="operation !== 'range_read'" class="grid gap-3" :class="showExtraField ? 'grid-cols-2' : 'grid-cols-1'">
             <div class="flex flex-col gap-1">
               <label class="text-[10px] font-black text-slate-500 tracking-[0.15em] uppercase">Data Type</label>
-              <Dropdown v-model="form.data_type" :options="dataTypes" class="w-full text-xs" :disabled="!store.isConnected" @change="onDataTypeChange" />
+              <Dropdown v-model="form.data_type" :options="dataTypes" class="w-full text-xs" @change="onDataTypeChange" />
             </div>
             <div class="flex flex-col gap-1" v-if="form.data_type === 'BOOL'">
               <label class="text-[10px] font-black text-slate-500 tracking-[0.15em] uppercase">Bit Offset</label>
-              <InputText type="number" v-model.number="form.bit_offset" class="font-mono text-xs" :disabled="!store.isConnected" />
+              <InputText type="number" v-model.number="form.bit_offset" class="font-mono text-xs" />
             </div>
             <div class="flex flex-col gap-1" v-if="form.data_type === 'STRING'">
               <label class="text-[10px] font-black text-cyan-500 tracking-[0.15em] uppercase">Registers</label>
-              <InputText type="number" v-model.number="form.register_count" class="font-mono text-xs" :disabled="!store.isConnected" />
+              <InputText type="number" v-model.number="form.register_count" class="font-mono text-xs" />
               <span class="text-[8px] text-slate-600">{{ form.register_count * 2 }} chars max</span>
             </div>
           </div>
@@ -107,10 +107,20 @@
           <!-- Address -->
           <div v-if="operation !== 'range_read'" class="flex flex-col gap-1">
             <label class="text-[10px] font-black tracking-[0.15em] uppercase" :class="operation === 'read' ? 'text-cyan-500' : 'text-amber-500'">Address / Tag</label>
-            <InputText v-model="form.address" :placeholder="exampleAddress" class="w-full font-mono text-sm tracking-wider" :disabled="!store.isConnected" />
+            <InputText v-model="form.address" :placeholder="exampleAddress" class="w-full font-mono text-sm tracking-wider" />
             <div class="flex items-center gap-1.5 mt-0.5">
               <i class="pi pi-info-circle text-slate-600" style="font-size: 9px;"></i>
               <span class="text-[9px] text-slate-600 tracking-wider">Format: <span class="text-slate-400">{{ exampleAddress }}</span></span>
+            </div>
+            <!-- Quick Address Presets -->
+            <div v-if="quickAddresses.length > 0" class="flex flex-wrap items-center gap-1.5 mt-1.5">
+              <span class="text-[9px] font-black uppercase text-slate-500 tracking-wider">Presets:</span>
+              <button v-for="qa in quickAddresses" :key="qa.addr" type="button"
+                      @click="applyQuickAddress(qa)"
+                      :title="qa.desc"
+                      class="px-2 py-0.5 rounded text-[9px] font-mono font-bold tracking-wider bg-slate-900 border border-slate-800 text-slate-400 hover:text-cyan-300 hover:border-cyan-500/40 hover:bg-cyan-950/30 active:scale-95 transition-all">
+                {{ qa.label }}
+              </button>
             </div>
           </div>
 
@@ -179,33 +189,160 @@
                   :loading="loading" />
         </form>
 
-        <!-- Right: Display Terminal -->
-        <div class="flex-1 flex flex-col p-6 bg-slate-950/60 rounded-2xl border border-slate-800/40 relative overflow-hidden min-h-[250px]">
+        <!-- Right: Telemetry & Signal Analyzer Deck -->
+        <div class="flex-1 flex flex-col p-5 bg-gradient-to-b from-slate-950/90 to-slate-950/70 rounded-2xl border border-slate-800/60 relative overflow-hidden min-h-[340px] shadow-2xl backdrop-blur-md">
            <!-- Grid decoration -->
-           <div class="absolute inset-0 opacity-[0.04]" style="background-image: linear-gradient(#475569 1px, transparent 1px), linear-gradient(90deg, #475569 1px, transparent 1px); background-size: 24px 24px;"></div>
+           <div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: linear-gradient(#475569 1px, transparent 1px), linear-gradient(90deg, #475569 1px, transparent 1px); background-size: 20px 20px;"></div>
            
-           <div class="relative z-10 w-full flex-1 flex flex-col items-center justify-center min-h-0">
+           <div class="relative z-10 w-full flex-1 flex flex-col min-h-0">
               <!-- READ display -->
-              <div v-if="operation === 'read'" class="w-full h-full flex flex-col justify-center items-center gap-4">
-                  <div class="flex items-center gap-2">
-                      <div class="h-1.5 w-1.5 rounded-full bg-cyan-500 shadow-[0_0_6px_#06b6d4]"></div>
-                      <span class="text-[9px] font-black tracking-[0.3em] text-cyan-600 uppercase">Terminal Output</span>
-                  </div>
-                  
-                  <div class="flex-1 w-full flex items-center justify-center">
-                      <span v-if="lastReadResult !== null" class="text-6xl lg:text-8xl xl:text-9xl font-mono font-black tracking-tighter text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.2)] truncate max-w-full overflow-hidden" style="font-family: 'JetBrains Mono', monospace;">
-                          {{ lastReadResult }}
-                      </span>
-                      <div v-else class="flex flex-col items-center gap-3">
-                          <div class="h-16 w-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center">
-                            <i class="pi pi-wave-pulse text-slate-700 text-2xl"></i>
+              <div v-if="operation === 'read'" class="w-full h-full flex flex-col min-h-0">
+                  <!-- Telemetry Top Toolbar -->
+                  <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-800/60 shrink-0">
+                      <div class="flex items-center gap-2">
+                          <span class="relative flex h-2 w-2">
+                            <span v-if="lastReadResult !== null" class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" :class="isBoolResult ? (boolResultValue ? 'bg-emerald-400' : 'bg-slate-400') : 'bg-cyan-400'"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2" :class="lastReadResult !== null ? (isBoolResult ? (boolResultValue ? 'bg-emerald-500' : 'bg-slate-500') : 'bg-cyan-500') : 'bg-slate-600'"></span>
+                          </span>
+                          <span class="text-[10px] font-black tracking-[0.2em] uppercase" :class="lastReadResult !== null ? 'text-slate-200' : 'text-slate-500'">
+                              {{ lastReadResult !== null ? 'TELEMETRY ACTIVE' : 'TELEMETRY STANDBY' }}
+                          </span>
+                          <span v-if="form.address" class="px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-slate-900 border border-slate-700/60 text-cyan-400">
+                              TAG: {{ form.address }}
+                          </span>
+                          <span v-if="lastReadMeta && lastReadMeta.latency" class="px-1.5 py-0.5 rounded font-mono text-[9px] font-bold bg-slate-900/80 text-slate-400 border border-slate-800">
+                              {{ lastReadMeta.latency }}ms
+                          </span>
+                      </div>
+
+                      <div class="flex items-center gap-2 ml-auto">
+                          <div v-if="isPollingLocal" class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-950/40 border border-cyan-500/30 text-[9px] font-black uppercase text-cyan-400">
+                              <i class="pi pi-spin pi-spinner text-[10px]"></i>
+                              <span>Watch · {{ store.pollingInterval }}ms</span>
                           </div>
-                          <span class="text-slate-700 text-[10px] uppercase tracking-[0.3em] font-black">Awaiting Signal</span>
+                          <button v-if="lastReadResult !== null" type="button" @click="copyReadResult" title="Copy raw value" class="p-1 rounded text-slate-400 hover:text-cyan-400 hover:bg-slate-800/80 transition-all text-xs">
+                              <i class="pi pi-copy"></i>
+                          </button>
+                          <button v-if="readHistory.length > 0" type="button" @click="clearReadHistory" title="Clear trace history" class="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-slate-800/80 transition-all text-xs">
+                              <i class="pi pi-trash"></i>
+                          </button>
                       </div>
                   </div>
                   
-                  <div v-if="isPollingLocal" class="flex items-center gap-2 text-[9px] tracking-widest font-black uppercase text-cyan-500">
-                      <i class="pi pi-spin pi-spinner" style="font-size: 10px;"></i> Watching · {{ store.pollingInterval }}ms
+                  <!-- Main Signal Readout Center -->
+                  <div class="flex-1 w-full flex flex-col justify-center items-center py-2 min-h-0">
+                      <!-- 1. Logic State Analyzer for BOOL -->
+                      <div v-if="lastReadResult !== null && isBoolResult" class="w-full max-w-lg p-5 rounded-2xl border transition-all duration-300 flex flex-col items-center justify-center relative overflow-hidden"
+                           :class="boolResultValue ? 'bg-gradient-to-b from-emerald-950/40 to-slate-950/80 border-emerald-500/40 shadow-[0_0_35px_rgba(16,185,129,0.15)]' : 'bg-gradient-to-b from-slate-900/60 to-slate-950/90 border-slate-800/80 shadow-[0_4px_24px_rgba(0,0,0,0.4)]'">
+                          
+                          <!-- Top Relay Status Pill -->
+                          <div class="flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase mb-3 border"
+                               :class="boolResultValue ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' : 'bg-slate-800/60 border-slate-700/60 text-slate-400'">
+                              <i :class="boolResultValue ? 'pi pi-bolt' : 'pi pi-power-off'" style="font-size: 10px;"></i>
+                              <span>{{ boolResultValue ? 'ENERGIZED (+24V DC)' : 'DE-ENERGIZED (0V DC)' }}</span>
+                          </div>
+
+                          <!-- Primary Digital State Readout -->
+                          <div class="flex items-baseline gap-3 my-1">
+                              <span class="text-6xl md:text-7xl font-mono font-black tracking-tight"
+                                    :class="boolResultValue ? 'text-emerald-400 drop-shadow-[0_0_25px_rgba(52,211,153,0.4)]' : 'text-slate-300 drop-shadow-[0_0_15px_rgba(148,163,184,0.15)]'">
+                                  {{ boolResultValue ? 'HIGH' : 'LOW' }}
+                              </span>
+                              <span class="px-2.5 py-1 rounded-md text-xs font-mono font-black border"
+                                    :class="boolResultValue ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-400'">
+                                  LOGIC {{ boolResultValue ? '1' : '0' }}
+                              </span>
+                          </div>
+
+                          <!-- Technical State Description -->
+                          <div class="text-[10px] font-mono tracking-wider text-slate-400 mt-2 text-center">
+                              {{ boolResultValue ? 'Assertion Active · Dry Contact Closed · Bit High' : 'Assertion Inactive · Dry Contact Open · Bit Low' }}
+                          </div>
+                      </div>
+
+                      <!-- 2. Numeric Readout for INT / DINT / REAL / FLOAT -->
+                      <div v-else-if="lastReadResult !== null && form.data_type !== 'STRING'" class="w-full max-w-lg p-6 rounded-2xl bg-gradient-to-b from-cyan-950/20 to-slate-950/80 border border-cyan-500/30 shadow-[0_0_30px_rgba(6,182,212,0.1)] flex flex-col items-center justify-center">
+                          <div class="text-[10px] font-mono font-black text-cyan-500 uppercase tracking-widest mb-2">
+                              {{ form.data_type }} REGISTER VALUE
+                          </div>
+                          <div class="text-5xl md:text-6xl font-mono font-black text-white tracking-tight drop-shadow-[0_0_25px_rgba(255,255,255,0.2)] truncate max-w-full">
+                              {{ lastReadResult }}
+                          </div>
+                          <div class="text-[10px] font-mono text-slate-400 mt-2">
+                              Precision Radix: Standard IEEE / Decimal Representation
+                          </div>
+                      </div>
+
+                      <!-- 3. String Readout -->
+                      <div v-else-if="lastReadResult !== null" class="w-full max-w-lg p-5 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col">
+                          <div class="text-[10px] font-mono font-black text-cyan-400 uppercase tracking-widest mb-2 flex justify-between">
+                              <span>ASCII String Buffer</span>
+                              <span class="text-slate-500">{{ String(lastReadResult).length }} chars</span>
+                          </div>
+                          <div class="p-3 bg-black/50 rounded-xl border border-slate-800/80 font-mono text-lg text-emerald-400 tracking-wider break-all select-all">
+                              "{{ lastReadResult }}"
+                          </div>
+                      </div>
+
+                      <!-- 4. Awaiting Signal / Standby -->
+                      <div v-else class="flex flex-col items-center justify-center gap-3 py-6">
+                          <div class="relative flex items-center justify-center h-20 w-20 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-inner">
+                              <span class="animate-ping absolute inline-flex h-12 w-12 rounded-full bg-cyan-500/10"></span>
+                              <i class="pi pi-wave-pulse text-cyan-500 text-3xl"></i>
+                          </div>
+                          <div class="text-center">
+                              <span class="text-slate-300 text-xs font-black uppercase tracking-[0.2em] block">Standby for Telemetry</span>
+                              <span class="text-slate-500 text-[10px] tracking-wider block mt-1">Select an address and click READ or toggle Live Watch</span>
+                          </div>
+                      </div>
+                  </div>
+
+                  <!-- Radix & Bitmask Inspector Grid (shown when data is present) -->
+                  <div v-if="lastReadResult !== null" class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-slate-800/60 shrink-0">
+                      <div class="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800/80 flex flex-col">
+                          <span class="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider">Decimal</span>
+                          <span class="text-xs font-mono font-black text-slate-200 mt-0.5 truncate">{{ formattedDec }}</span>
+                      </div>
+                      <div class="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800/80 flex flex-col">
+                          <span class="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider">Hexadecimal</span>
+                          <span class="text-xs font-mono font-black text-cyan-400 mt-0.5 font-bold truncate">{{ formattedHex }}</span>
+                      </div>
+                      <div class="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800/80 flex flex-col">
+                          <span class="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider">Bitmask</span>
+                          <span class="text-xs font-mono font-black text-emerald-400 mt-0.5 tracking-wider truncate">{{ formattedBin }}</span>
+                      </div>
+                      <div class="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800/80 flex flex-col">
+                          <span class="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider">Type / Offset</span>
+                          <span class="text-xs font-mono font-black text-amber-400 mt-0.5 truncate">{{ form.data_type }} {{ form.data_type === 'BOOL' ? '· b' + form.bit_offset : '' }}</span>
+                      </div>
+                  </div>
+
+                  <!-- Rolling Signal Trace Log (collapsible / compact) -->
+                  <div v-if="readHistory.length > 0" class="mt-3 pt-3 border-t border-slate-800/60 flex flex-col max-h-36 shrink-0">
+                      <div class="flex items-center justify-between text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-1">
+                          <span class="flex items-center gap-1.5">
+                              <i class="pi pi-list text-[9px] text-cyan-400"></i> Signal Trace (Last {{ readHistory.length }})
+                          </span>
+                          <span class="text-slate-500 font-medium">Time (IST · AM/PM) · Addr · Value</span>
+                      </div>
+                      <div class="flex-1 overflow-y-auto custom-scroll space-y-1 pr-1 font-mono text-[10px]">
+                          <div v-for="item in readHistory" :key="item.id" class="flex items-center justify-between px-2.5 py-1 rounded bg-slate-900/40 border border-slate-800/50 hover:bg-slate-800/50 transition-colors">
+                              <div class="flex items-center gap-2">
+                                  <span class="text-slate-500">{{ item.time }}</span>
+                                  <span class="font-bold text-cyan-400">{{ item.address }}</span>
+                              </div>
+                              <div class="flex items-center gap-2">
+                                  <span v-if="item.isBool" class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase"
+                                        :class="item.boolVal ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'">
+                                      {{ item.boolVal ? 'HIGH (1)' : 'LOW (0)' }}
+                                  </span>
+                                  <span v-else class="text-slate-200 font-bold truncate max-w-[120px]">
+                                      {{ item.value }}
+                                  </span>
+                                  <span class="text-[9px] text-slate-600">{{ item.latency }}ms</span>
+                              </div>
+                          </div>
+                      </div>
                   </div>
               </div>
               
@@ -639,6 +776,8 @@ const operation = ref('read')
 const loading = ref(false)
 const isPollingLocal = ref(false)
 const lastReadResult = ref(null)
+const lastReadMeta = ref(null)
+const readHistory = ref([])
 const latencyMs = ref(0)
 let latencyTimer = null
 
@@ -1071,8 +1210,120 @@ const exampleAddress = computed(() => {
   if (t === 'rockwell') return 'MyTag';
   if (t === 'abb') return form.value.data_type === 'BOOL' ? '00001' : '40001';
   if (t === 'fanuc') return 'R100';
+  if (t === 'opcua') return form.value.data_type === 'BOOL' ? 'ns=2;s=Device.Running' : 'ns=2;s=Device.Speed';
   return 'Address';
 })
+
+const quickAddresses = computed(() => {
+  const t = store.connectionConfig.plc_type;
+  if (t === 'mitsubishi') return [
+    { label: 'M0', addr: 'M0', type: 'BOOL', desc: 'Relay Bit 0' },
+    { label: 'M100', addr: 'M100', type: 'BOOL', desc: 'Aux Relay 100' },
+    { label: 'D0', addr: 'D0', type: 'INT', desc: 'Data Reg 0' },
+    { label: 'D100', addr: 'D100', type: 'INT', desc: 'Data Reg 100' },
+    { label: 'X0', addr: 'X0', type: 'BOOL', desc: 'Input 0' },
+    { label: 'Y0', addr: 'Y0', type: 'BOOL', desc: 'Output 0' },
+  ];
+  if (t === 'siemens') return [
+    { label: 'DB1.DBX0.0', addr: 'DB1.DBX0.0', type: 'BOOL', desc: 'DB1 Bit 0' },
+    { label: 'DB1.DBW2', addr: 'DB1.DBW2', type: 'INT', desc: 'DB1 Word 2' },
+    { label: 'DB1.DBD4', addr: 'DB1.DBD4', type: 'DINT', desc: 'DB1 DWord 4' },
+    { label: 'MW0', addr: 'MW0', type: 'INT', desc: 'Memory Word 0' },
+  ];
+  if (t === 'opcua') return [
+    { label: 'Device.Running', addr: 'ns=2;s=Device.Running', type: 'BOOL', desc: 'Motor State' },
+    { label: 'Device.Speed', addr: 'ns=2;s=Device.Speed', type: 'INT', desc: 'Motor RPM' },
+    { label: 'Device.Temp', addr: 'ns=2;s=Device.Temp', type: 'REAL', desc: 'Temperature' },
+  ];
+  if (t === 'abb' || t === 'modbus') return [
+    { label: '00001', addr: '00001', type: 'BOOL', desc: 'Coil 1' },
+    { label: '10001', addr: '10001', type: 'BOOL', desc: 'Discrete Input 1' },
+    { label: '40001', addr: '40001', type: 'INT', desc: 'Holding Reg 1' },
+    { label: '30001', addr: '30001', type: 'INT', desc: 'Input Reg 1' },
+  ];
+  return [
+    { label: 'R0', addr: 'R0', type: 'INT', desc: 'Reg 0' },
+    { label: 'R100', addr: 'R100', type: 'INT', desc: 'Reg 100' },
+  ];
+});
+
+const applyQuickAddress = (qa) => {
+  form.value.address = qa.addr;
+  if (qa.type) {
+    form.value.data_type = qa.type;
+    onDataTypeChange();
+  }
+};
+
+const isBoolResult = computed(() => {
+  if (lastReadResult.value === null) return false;
+  return form.value.data_type === 'BOOL' || typeof lastReadResult.value === 'boolean' || lastReadResult.value === 'true' || lastReadResult.value === 'false';
+});
+
+const boolResultValue = computed(() => {
+  const val = lastReadResult.value;
+  return val === true || val === 'true' || val === 1 || val === '1';
+});
+
+const formattedDec = computed(() => {
+  if (lastReadResult.value === null) return '—';
+  if (isBoolResult.value) return boolResultValue.value ? '1' : '0';
+  if (typeof lastReadResult.value === 'number') return lastReadResult.value.toLocaleString();
+  return String(lastReadResult.value);
+});
+
+const formattedHex = computed(() => {
+  if (lastReadResult.value === null) return '0x00';
+  if (isBoolResult.value) return boolResultValue.value ? '0x01' : '0x00';
+  const num = Number(lastReadResult.value);
+  if (!isNaN(num) && Number.isInteger(num)) {
+    return '0x' + (num >>> 0).toString(16).toUpperCase().padStart(4, '0');
+  }
+  return '—';
+});
+
+const formattedBin = computed(() => {
+  if (lastReadResult.value === null) return '0000 0000';
+  if (isBoolResult.value) return boolResultValue.value ? '0000 0001' : '0000 0000';
+  const num = Number(lastReadResult.value);
+  if (!isNaN(num) && Number.isInteger(num)) {
+    const b = (num >>> 0).toString(2).padStart(16, '0');
+    return b.slice(0, 8) + ' ' + b.slice(8);
+  }
+  return '—';
+});
+
+const addReadHistoryItem = (val, meta) => {
+  const isBool = meta.dataType === 'BOOL' || typeof val === 'boolean' || val === 'true' || val === 'false';
+  const boolVal = isBool ? (val === true || val === 'true' || val === 1 || val === '1') : null;
+  readHistory.value.unshift({
+    id: Date.now() + Math.random(),
+    time: meta.timestamp,
+    address: meta.address,
+    type: meta.dataType,
+    value: val,
+    latency: meta.latency,
+    isBool,
+    boolVal
+  });
+  if (readHistory.value.length > 15) {
+    readHistory.value.pop();
+  }
+};
+
+const clearReadHistory = () => {
+  readHistory.value = [];
+};
+
+const copyReadResult = async () => {
+  if (lastReadResult.value === null) return;
+  try {
+    await navigator.clipboard.writeText(String(lastReadResult.value));
+    toast.add({ severity: 'info', summary: 'Copied', detail: `Copied ${lastReadResult.value} to clipboard`, life: 2000 });
+  } catch (e) {
+    // clipboard fallback
+  }
+};
 
 const onDataTypeChange = () => {
     if (form.value.data_type === 'BOOL') {
@@ -1095,13 +1346,47 @@ const buildPayload = () => {
     return p;
 }
 
+const formatIndianTime = (date = new Date()) => {
+  const parts = new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  }).formatToParts(date);
+
+  let hour = '', minute = '', second = '', dayPeriod = '';
+  for (const p of parts) {
+    if (p.type === 'hour') hour = p.value;
+    else if (p.type === 'minute') minute = p.value;
+    else if (p.type === 'second') second = p.value;
+    else if (p.type === 'dayPeriod') dayPeriod = p.value.toUpperCase();
+  }
+  const ms = date.getMilliseconds().toString().padStart(3, '0');
+  return `${hour.padStart(2, '0')}:${minute}:${second}.${ms} ${dayPeriod}`;
+};
+
 const performRead = async () => {
     loading.value = true;
+    const startT = performance.now();
     try {
         const payload = buildPayload();
         const res = await api.readData(payload);
+        const callLatency = Math.round(performance.now() - startT);
         if (res.data.success) {
             lastReadResult.value = res.data.value;
+            const now = new Date();
+            const timeStr = formatIndianTime(now);
+            const meta = {
+                timestamp: timeStr,
+                latency: res.data.latency_ms || callLatency,
+                address: form.value.address,
+                dataType: form.value.data_type,
+                bitOffset: form.value.bit_offset,
+                success: true
+            };
+            lastReadMeta.value = meta;
+            addReadHistoryItem(res.data.value, meta);
         } else {
             if (isPollingLocal.value) { isPollingLocal.value = false; togglePolling(); }
             toast.add({ severity: 'error', summary: 'Read Error', detail: res.data.message, life: 5000 });

@@ -35,6 +35,19 @@
       <path d="M9.5 17.5V20" opacity="0.72" />
     </g>
 
+    <g v-else-if="normalizedType === 'opcua'" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Hexagonal Unified Architecture Node network -->
+      <polygon points="12,3 20,7.5 20,16.5 12,21 4,16.5 4,7.5" opacity="0.18" fill="currentColor" />
+      <polygon points="12,3 20,7.5 20,16.5 12,21 4,16.5 4,7.5" />
+      <circle cx="12" cy="12" r="2.2" fill="currentColor" />
+      <path d="M12 9.8V4" opacity="0.85" />
+      <path d="M10.1 13.1L5.5 15.8" opacity="0.85" />
+      <path d="M13.9 13.1L18.5 15.8" opacity="0.85" />
+      <circle cx="12" cy="4" r="1" fill="currentColor" />
+      <circle cx="5.5" cy="15.8" r="1" fill="currentColor" />
+      <circle cx="18.5" cy="15.8" r="1" fill="currentColor" />
+    </g>
+
     <g v-else stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <rect x="4" y="5" width="16" height="14" rx="3.5" opacity="0.18" fill="currentColor" />
       <path d="M8 12H16" />

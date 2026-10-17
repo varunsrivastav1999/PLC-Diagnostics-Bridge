@@ -34,15 +34,15 @@ origins_str = settings.CORS_ORIGINS.strip()
 if origins_str == "" or origins_str == "*":
     app.add_middleware(
         CORSMiddleware,
-        allow_origin_regex=".*",
-        allow_credentials=True,
+        allow_origins=["*"],
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 else:
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins_str.split(","),
+        allow_origins=[o.strip() for o in origins_str.split(",") if o.strip()],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -52,6 +52,14 @@ else:
 @app.exception_handler(PLCConnectionError)
 async def plc_connection_error_handler(request: Request, exc: PLCConnectionError):
     logger.error(f"Connection error: {exc}")
+    return JSONResponse(status_code=200, content={
+        "success": False, "message": str(exc), "value": None, "connected": False,
+        "timestamp": None
+    })
+
+@app.exception_handler(PLCTimeoutError)
+async def plc_timeout_error_handler(request: Request, exc: PLCTimeoutError):
+    logger.error(f"Timeout error: {exc}")
     return JSONResponse(status_code=200, content={
         "success": False, "message": str(exc), "value": None, "connected": False,
         "timestamp": None

@@ -16,6 +16,7 @@ _BUILTIN_SERVICE_LOADERS: dict[str, Callable[[], type[BasePLCService]]] = {
     PLCType.rockwell.value: lambda: __import__("app.services.plc.rockwell", fromlist=["RockwellPLCService"]).RockwellPLCService,
     PLCType.abb.value: lambda: __import__("app.services.plc.abb", fromlist=["ABBPLCService"]).ABBPLCService,
     PLCType.fanuc.value: lambda: __import__("app.services.plc.fanuc", fromlist=["FanucPLCService"]).FanucPLCService,
+    PLCType.opcua.value: lambda: __import__("app.services.plc.opcua", fromlist=["OPCUAPLCService"]).OPCUAPLCService,
 }
 
 _CUSTOM_SERVICE_REGISTRY: dict[str, type[BasePLCService]] = {}

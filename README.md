@@ -52,10 +52,11 @@
 
 ## ✨ Features
 
-- 🔌 **Multi-PLC Support** — Siemens (S7), Rockwell (CIP), Mitsubishi (MC Protocol, including FX5U-500B), ABB (Modbus/TCP), Fanuc
-- 📖 **Read & Write** — Bool, Int, DInt, Real/Float, String data types
-- 🩺 **Connection Diagnostics** — Health checks, connection pooling, timeout management
-- 🖥️ **Responsive Operations UI** — Desktop, tablet, and mobile-ready dashboard with internal scrolling and compact workspace summaries
+- 🔌 **Multi-PLC Support** — Siemens (S7), Rockwell (CIP), Mitsubishi (MC Protocol, including FX5U-500B), ABB (Modbus/TCP), Fanuc, OPC-UA (IEC 62541)
+- ⚡ **Automated MC Port Detection & Auto-Link** — Automatically detects Mitsubishi MC ports (5000, 5001, etc.) and completes the connection process upon IP entry; dynamically refreshes and re-detects whenever the IP address changes
+- 🎨 **Next-Gen Industrial UI (v3.0)** — Modern cyber-cockpit dark theme, glassmorphic HUD telemetry banner, animated signal beacons, and tactile operations terminal
+- 📖 **Read & Write** — Bool, Int, DInt, Real/Float, String data types with multi-radix (Hex, Dec, ASCII) inspectors
+- 🩺 **Connection Diagnostics** — Health checks, continuous port monitoring, latency measurement, timeout management
 - 📱 **Installable Mobile App Experience** — PWA manifest, service worker, and home-screen support for iPhone and Android
 - 📦 **Reusable Python SDK** — `plcbridge-sdk` manager layer for custom SCADA websites, scripts, and backend services
 - 🐳 **Fully Dockerized** — Single `docker-compose up` deployment
@@ -270,6 +271,7 @@ Environment variables (set in `docker-compose.yml`):
 | Mitsubishi | MC Protocol     | pymcprotocol    | Bool, Int, Float, String (FX5U-500B, Q/L Series) | [📖](docs/mitsubishi.md) |
 | ABB        | Modbus/TCP      | pymodbus        | Bool, Int, Float, String      | [📖](docs/abb.md) |
 | Fanuc      | Custom          | —               | Read/Write                    | [📖](docs/fanuc.md) |
+| OPC-UA     | IEC 62541 (TCP) | asyncua         | Bool, Int, DInt, Real, String | [📖](docs/opcua.md) |
 
 📚 **Detailed documentation for each PLC brand**: [docs/](docs/)
 
