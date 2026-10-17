@@ -1351,19 +1351,16 @@ const formatIndianTime = (date = new Date()) => {
     timeZone: 'Asia/Kolkata',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
     hour12: true
   }).formatToParts(date);
 
-  let hour = '', minute = '', second = '', dayPeriod = '';
+  let hour = '', minute = '', dayPeriod = '';
   for (const p of parts) {
     if (p.type === 'hour') hour = p.value;
     else if (p.type === 'minute') minute = p.value;
-    else if (p.type === 'second') second = p.value;
     else if (p.type === 'dayPeriod') dayPeriod = p.value.toUpperCase();
   }
-  const ms = date.getMilliseconds().toString().padStart(3, '0');
-  return `${hour.padStart(2, '0')}:${minute}:${second}.${ms} ${dayPeriod}`;
+  return `${hour.padStart(2, '0')}:${minute} ${dayPeriod}`;
 };
 
 const performRead = async () => {
